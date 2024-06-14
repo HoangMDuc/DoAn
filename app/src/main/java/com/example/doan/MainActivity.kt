@@ -1,72 +1,151 @@
 package com.example.doan
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.drawerlayout.widget.DrawerLayout
+import androidx.navigation.NavController
+import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.ui.AppBarConfiguration
+import androidx.navigation.ui.navigateUp
+import androidx.navigation.ui.setupActionBarWithNavController
+import androidx.navigation.ui.setupWithNavController
 import com.example.doan.databinding.ActivityMainBinding
-import com.firebase.ui.auth.AuthUI
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
+import com.example.doan.utils.IMAGE_MEDIA
+import com.example.doan.utils.getLockedFileRootPath
+import com.google.android.material.navigation.NavigationView
 
 
-const val GUEST_DISPLAY_NAME = "GUEST"
-
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(){
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var auth: FirebaseAuth
+    private lateinit var navController: NavController
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var appBarConfiguration: AppBarConfiguration
+    private lateinit var slideNavView: NavigationView
+    @RequiresApi(Build.VERSION_CODES.R)
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        Log.d("Activity", "Permission ${Environment.isExternalStorageManager()}")
+    }
+
+    @RequiresApi(33)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        auth = Firebase.auth
-        if(auth.currentUser == null) {
-           // startActivity(Intent(this, LoginActivity::class.java))
-            finish()
-            return
-        }
-        // Example of a call to a native method
-        binding.sampleText.text = stringFromJNI()
 
+
+        val navHostFragment =
+            supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        navController = navHostFragment.navController
+        slideNavView = binding.navView
+        drawerLayout = binding.drawerLayout
+        appBarConfiguration = AppBarConfiguration(navController.graph, drawerLayout)
+        slideNavView.setupWithNavController(navController)
+        setupActionBarWithNavController(navController, appBarConfiguration)
+        //supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            when (destination.id) {
+                R.id.login_fragment, R.id.register_fragment -> {
+                    drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+                    supportActionBar?.setDisplayHomeAsUpEnabled(false)
+                }
+
+                else -> {
+                    drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
+                    supportActionBar?.setDisplayHomeAsUpEnabled(true)
+                }
+            }
+
+        }
+
+        if (!checkPermission(READ_IMAGE_PERMISSION)) {
+            requestPermissions(arrayOf(Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO,Manifest.permission.READ_MEDIA_AUDIO), 1)
+        }
+
+
+        val root = getExternalFilesDirs(null)
+        Log.d("Tag", getLockedFileRootPath(applicationContext, IMAGE_MEDIA))
+
+        if (root != null) {
+            for (r in root) {
+                val files = r.listFiles()
+                Log.d("External root", r.absolutePath)
+                if (files != null) {
+                    for (f in files) {
+                        Log.d("external", f.absolutePath)
+                    }
+                }
+            }
+
+        }
+
+        Log.d("Activity", Environment.getExternalStorageDirectory().absolutePath)
+        //Log.d("Activity", getLockedFilePath(applicationContext, null))
+        Log.d("Activity", getExternalFilesDirs(Environment.DIRECTORY_DOCUMENTS)[0].absolutePath)
+        Log.d("Activity", "${checkPermission(Manifest.permission.READ_MEDIA_VIDEO)}")
+        Log.d("Activity", "${checkPermission(Manifest.permission.READ_MEDIA_IMAGES)}")
+        Log.d("Activity", "${checkPermission(Manifest.permission.READ_MEDIA_AUDIO)}")
+//        if(checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+//            requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE), 2)
+//        }
 
     }
+
+
+    override fun onSupportNavigateUp(): Boolean {
+
+        return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
+    }
+
+//    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+//        return item.onNavDestinationSelected(navController) || super.onOptionsItemSelected(item)
+//    }
 
     /**
      * A native method that is implemented by the 'doan' native library,
      * which is packaged with this application.
      */
-    external fun stringFromJNI(): String
+
 
     companion object {
         // Used to load the 'doan' library on application startup.
         init {
             System.loadLibrary("doan")
         }
+
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        const val READ_IMAGE_PERMISSION = Manifest.permission.READ_MEDIA_IMAGES
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        const val READ_VIDEO_PERMISSION = Manifest.permission.READ_MEDIA_VIDEO
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        const val READ_AUDIO_PERMISSION = Manifest.permission.READ_MEDIA_AUDIO
+
     }
 
-    override fun onStart() {
-        super.onStart()
-        if(auth.currentUser == null) {
-            //startActivity(Intent(this, LoginActivity::class.java))
-            finish()
-            return
-        }
+    private fun requestPermission() {
+
     }
 
-    private fun getUserPhotoUrl() : String? {
-        val user = auth.currentUser
-        return user?.photoUrl.toString()
+
+    private fun checkPermission(permissions: String): Boolean {
+
+        return ContextCompat.checkSelfPermission(
+            this,
+            permissions
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun getUserName() : String? {
-        val user = auth.currentUser
-        return if(user != null) user.displayName else  GUEST_DISPLAY_NAME
-    }
 
-    private fun signOut() {
-        AuthUI.getInstance().signOut(this)
-       // startActivity(Intent(this, LoginActivity::class.java))
-        finish()
-    }
+
 }

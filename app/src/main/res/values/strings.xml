@@ -1,10 +1,6 @@
 <resources>
-    <string name="app_name">DoAn</string>
-    <string name="title_activity_login">LoginActivity</string>
-    <string name="prompt_email">Email</string>
-    <string name="prompt_password">Password</string>
-    <string name="action_sign_in">Sign in or register</string>
-    <string name="action_sign_in_short">Sign in</string>
+    <string name="app_name">TLU Data Warehouse</string>
+
     <string name="welcome">"Welcome !"</string>
     <string name="invalid_username">Not a valid username</string>
     <string name="invalid_password">Password must be >5 characters</string>
@@ -20,4 +16,40 @@
     <string name="menu_home">Home</string>
     <string name="menu_gallery">Gallery</string>
     <string name="menu_slideshow">Slideshow</string>
+    <!-- TODO: Remove or change this placeholder text -->
+
+    <string name="master_password">Master Password</string>
+    <string name="application_logo">Application logo</string>
+    <string name="welcome_to_tlu_data_warehouse">Welcome to TLU Data WareHouse. This is your first time accessing this application, please create a password for authentication</string>
+    <string name="master_password_notice">Create your master password. Please remember it for change secondary password and recovery password if you forget it, you won\'t recovery secondary password</string>
+    <string name="create_new_master_pw">Create new master password</string>
+    <string name="enter_master_password">Enter Master Password</string>
+    <string name="confirm_master_password">Confirm Master Password</string>
+    <string name="next">Next</string>
+    <string name="secondary_password">Secondary password</string>
+    <string name="enter_secondary_password">Enter secondary password</string>
+    <string name="confirm_secondary_password">Confirm secondary password</string>
+    <string name="email_for_recovery_password">Email for recovery password</string>
+    <string name="enter_email">Enter email</string>
+    <string name="cancel">Cancel</string>
+    <string name="login">Login</string>
+    <string name="by_clicking_continue_you_agree_to_our_terms_of_service_and_privacy_policy">By clicking continue, you agree to our <b>Terms of Service</b> and <b>Privacy Policy</b>.</string>
+    <string name="password_notice">password notice</string>
+    <string name="master_pw_note">Note: Master password is very important! It is used to recover and change password. If you forget it, you will not able to use the application and will lose all data.</string>
+    <string name="folder_image">Folder Image</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="file_quantity"> 0 Files</string>
+    <plurals name="file_quantity">
+        <item quantity="one">%d File</item>
+        <item quantity="other">%d Files</item>
+    </plurals>
+    <string name="lock_file">LOCK FILE</string>
+    <string name="select_button">select button</string>
+    <string name="no_file_yet">No file yet</string>
+    <string name="choose_image">Choose new image</string>
+    <string name="choose_new_video">Choose new video</string>
+    <string name="choose_new_audio">Choose new audio</string>
+    <string name="choose_new_document">Choose new document</string>
+    <string name="dialog_title">Choose the type of file you want to lock</string>
 </resources>

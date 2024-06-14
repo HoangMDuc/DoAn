@@ -9,7 +9,10 @@ cmake_minimum_required(VERSION 3.22.1)
 # Since this is the top level CMakeLists.txt, the project name is also accessible
 # with ${CMAKE_PROJECT_NAME} (both CMake variables are in-sync within the top level
 # build script scope).
-project("doan")
+project("doan" LANGUAGES CXX)
+find_package(curl REQUIRED CONFIG)
+find_package(openssl REQUIRED CONFIG)
+
 
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
@@ -35,3 +38,5 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         # List libraries link to the target library
         android
         log)
+
+target_link_libraries(${CMAKE_PROJECT_NAME} ${LIBLOG} curl::curl)
