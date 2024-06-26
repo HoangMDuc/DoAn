@@ -72,11 +72,22 @@ class HomeFragment : Fragment() {
             }
 
             documentFolder.setOnClickListener {
+
                 handleFolderClick(DOCUMENT, VIEW_ALL)
             }
 
         }
-        folderViewModel.folders.observe(viewLifecycleOwner) { folders ->
+
+//        viewModel.isLogin.observe(viewLifecycleOwner){
+//            if(!it) {
+//                findNavController().navigate(R.id.login_fragment)
+//            }else {
+//                val keyStore = KeysRepository(requireActivity().application)
+//                Log.d("Activity", keyStore.getKey("password"))
+//
+//            }
+//        }
+        folderViewModel.rootFolders.observe(viewLifecycleOwner) { folders ->
             Log.d("Folder", "${folders.size}")
             if (folders.isEmpty()) {
                 Log.d("Folder", "Empty")
@@ -107,64 +118,72 @@ class HomeFragment : Fragment() {
                 )
             } else {
 
-                val folderMap : Map<String, FolderEntity> = folders.associateBy { it.id }
+                val folderMap: Map<String, FolderEntity> = folders.associateBy { it.id }
                 showFolderInformation(folderMap)
             }
         }
-
-//        viewModel.isLogin.observe(viewLifecycleOwner){
-//            if(!it) {
-//                findNavController().navigate(R.id.login_fragment)
-//            }else {
-//                val keyStore = KeysRepository(requireActivity().application)
-//                Log.d("Activity", keyStore.getKey("password"))
-//
-//            }
-//        }
-
-
     }
 
     private fun handleFolderClick(type: String, folder: String) {
 
-        val action = HomeFragmentDirections.actionHomeFragmentToLockedFileListFragment(type, folder)
+        val action = HomeFragmentDirections.actionHomeFragmentToLockedFileListFragment(type, folder, folder)
         findNavController().navigate(action)
     }
+
     private fun showFolderInformation(folderMap: Map<String, FolderEntity>) {
-        binding.imageQuantity.text = resources.getQuantityString(R.plurals.file_quantity, folderMap[IMAGE_MEDIA]?.fileQuantity ?: 0, folderMap[IMAGE_MEDIA]?.fileQuantity ?: 0)
-        binding.videoQuantity.text = resources.getQuantityString(R.plurals.file_quantity, folderMap[VIDEO_MEDIA]?.fileQuantity ?: 0, folderMap[VIDEO_MEDIA]?.fileQuantity ?: 0)
-        binding.audioQuantity.text = resources.getQuantityString(R.plurals.file_quantity, folderMap[AUDIO_MEDIA]?.fileQuantity ?: 0, folderMap[AUDIO_MEDIA]?.fileQuantity ?: 0)
+        binding.imageQuantity.text = resources.getQuantityString(
+            R.plurals.file_quantity,
+            folderMap[IMAGE_MEDIA]?.fileQuantity ?: 0,
+            folderMap[IMAGE_MEDIA]?.fileQuantity ?: 0
+        )
+        binding.videoQuantity.text = resources.getQuantityString(
+            R.plurals.file_quantity,
+            folderMap[VIDEO_MEDIA]?.fileQuantity ?: 0,
+            folderMap[VIDEO_MEDIA]?.fileQuantity ?: 0
+        )
+        binding.audioQuantity.text = resources.getQuantityString(
+            R.plurals.file_quantity,
+            folderMap[AUDIO_MEDIA]?.fileQuantity ?: 0,
+            folderMap[AUDIO_MEDIA]?.fileQuantity ?: 0
+        )
 
-        binding.documentQuantity.text = resources.getQuantityString(R.plurals.file_quantity, folderMap[DOCUMENT]?.fileQuantity ?: 0, folderMap[DOCUMENT]?.fileQuantity ?: 0)
+        binding.documentQuantity.text = resources.getQuantityString(
+            R.plurals.file_quantity,
+            folderMap[DOCUMENT]?.fileQuantity ?: 0,
+            folderMap[DOCUMENT]?.fileQuantity ?: 0
+        )
 
-        if(folderMap[IMAGE_MEDIA]?.thumbnail != null) {
+        if (folderMap[IMAGE_MEDIA]?.thumbnail != null) {
             val bitmap = stringToBitmap(folderMap[IMAGE_MEDIA]?.thumbnail!!)
             binding.imageIcon.setImageBitmap(bitmap)
         }
-        if(folderMap[VIDEO_MEDIA]?.thumbnail != null) {
+        if (folderMap[VIDEO_MEDIA]?.thumbnail != null) {
             val bitmap = stringToBitmap(folderMap[VIDEO_MEDIA]?.thumbnail!!)
             binding.videoIcon.setImageBitmap(bitmap)
         }
-        if(folderMap[AUDIO_MEDIA]?.thumbnail != null) {
+        if (folderMap[AUDIO_MEDIA]?.thumbnail != null) {
             val bitmap = stringToBitmap(folderMap[AUDIO_MEDIA]?.thumbnail!!)
             binding.audioIcon.setImageBitmap(bitmap)
         }
-        if(folderMap[DOCUMENT]?.thumbnail != null) {
+        if (folderMap[DOCUMENT]?.thumbnail != null) {
             val bitmap = stringToBitmap(folderMap[DOCUMENT]?.thumbnail!!)
             binding.documentIcon.setImageBitmap(bitmap)
         }
     }
+
     private fun handleFabClick() {
         activity?.supportFragmentManager?.let { AddNewDialogFragment(getListener()).show(it, "") }
 
     }
-    private fun getListener() : AddNewDialogFragment.AddNewDialogListener {
+
+    private fun getListener(): AddNewDialogFragment.AddNewDialogListener {
         return object : AddNewDialogFragment.AddNewDialogListener {
-            override  fun onDialogImageClick(dialogFragment: DialogFragment) {
+            override fun onDialogImageClick(dialogFragment: DialogFragment) {
                 dialogFragment.dismiss()
                 val action = HomeFragmentDirections.actionHomeFragmentToFileListFragment(
                     FileListFragment.VIEW_ALL_FILE,
-                    IMAGE_MEDIA
+                    IMAGE_MEDIA,
+                    -1
                 )
                 findNavController().navigate(action)
             }
@@ -173,7 +192,8 @@ class HomeFragment : Fragment() {
                 dialogFragment.dismiss()
                 val action = HomeFragmentDirections.actionHomeFragmentToFileListFragment(
                     FileListFragment.VIEW_ALL_FILE,
-                    VIDEO_MEDIA
+                    VIDEO_MEDIA,
+                    -1
                 )
                 findNavController().navigate(action)
             }
@@ -182,7 +202,8 @@ class HomeFragment : Fragment() {
                 dialogFragment.dismiss()
                 val action = HomeFragmentDirections.actionHomeFragmentToFileListFragment(
                     FileListFragment.VIEW_ALL_FILE,
-                    AUDIO_MEDIA
+                    AUDIO_MEDIA,
+                    -1
                 )
                 findNavController().navigate(action)
             }
@@ -191,14 +212,13 @@ class HomeFragment : Fragment() {
                 dialogFragment.dismiss()
                 val action = HomeFragmentDirections.actionHomeFragmentToFileListFragment(
                     FileListFragment.VIEW_ALL_FILE,
-                    DOCUMENT
+                    DOCUMENT,
+                    -1
                 )
                 findNavController().navigate(action)
             }
         }
     }
-
-
 
 
 }

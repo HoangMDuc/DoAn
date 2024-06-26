@@ -1,10 +1,12 @@
 package com.example.doan
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -18,6 +20,7 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.example.doan.databinding.ActivityMainBinding
+import com.example.doan.repository.KeysRepository
 import com.example.doan.utils.IMAGE_MEDIA
 import com.example.doan.utils.getLockedFileRootPath
 import com.google.android.material.navigation.NavigationView
@@ -100,6 +103,14 @@ class MainActivity : AppCompatActivity(){
 //            requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE), 2)
 //        }
 
+        Log.d("AC",Environment.isExternalStorageManager().toString())
+        if(Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
+            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+
+            startActivityForResult(intent, 22)
+        }
+
+        KeysRepository(application).test1("")
     }
 
 
@@ -137,6 +148,16 @@ class MainActivity : AppCompatActivity(){
 
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if(requestCode == 22) {
+            Log.d("Activity", "OK1")
+        }
+    }
 
     private fun checkPermission(permissions: String): Boolean {
 

@@ -471,8 +471,8 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_doan_repository_KeysRepository_test1(JNIEnv *env, jobject thiz, jstring input) {
     const char *i = env->GetStringUTFChars(input, nullptr);
-    test((unsigned char *) i);
-
+    //test((unsigned char *) i);
+    LOGI("TEST", "%d", EVP_MAX_BLOCK_LENGTH);
 }
 
 extern "C"

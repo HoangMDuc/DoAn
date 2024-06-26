@@ -9,9 +9,9 @@
             android:icon="@drawable/ic_menu_camera"
             android:title="@string/menu_home" />
         <item
-            android:id="@+id/login_fragment"
-            android:icon="@drawable/ic_menu_gallery"
-            android:title="@string/login" />
+
+            android:icon="@drawable/ic_setting"
+            android:title="@string/settings" />
 
     </group>
 </menu>

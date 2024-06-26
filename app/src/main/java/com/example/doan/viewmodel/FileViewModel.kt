@@ -5,6 +5,7 @@ import android.app.RecoverableSecurityException
 import android.content.IntentSender
 import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -14,12 +15,18 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.doan.crypto.Crypto
 import com.example.doan.database.Bucket
 import com.example.doan.database.FileProjections
+import com.example.doan.database.ImageProjection
+import com.example.doan.database.VideoProjection
+import com.example.doan.database.entity.FileEntity
+import com.example.doan.database.entity.FolderEntity
 import com.example.doan.repository.FileRepository
+import com.example.doan.repository.FolderRepository
 import com.example.doan.repository.KeysRepository
 import com.example.doan.utils.AUDIO_MEDIA
 import com.example.doan.utils.IMAGE_MEDIA
 import com.example.doan.utils.STATUS
 import com.example.doan.utils.VIDEO_MEDIA
+import com.example.doan.utils.bitmapToString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -28,54 +35,50 @@ import java.io.File
 class FileViewModel(
     private val application: Application,
     private val fileRepository: FileRepository,
-    private val keysRepository: KeysRepository
+    private val keysRepository: KeysRepository,
+    private val folderRepository: FolderRepository
+
 ) : ViewModel() {
-    private val _buckets = MutableLiveData<Map<String, Bucket>>()
-    val buckets: LiveData<Map<String, Bucket>> get() = _buckets
+    private val _buckets = MutableLiveData<Map<Long, Bucket>>()
+    val buckets: LiveData<Map<Long, Bucket>> get() = _buckets
 
     private val _files = MutableLiveData<List<FileProjections>>()
     val files: LiveData<List<FileProjections>> = _files
 
     private val _selectedFiles = MutableLiveData<List<FileProjections>>()
     val selectedFiles: LiveData<List<FileProjections>> get() = _selectedFiles
-    private val _lockedFiles = MutableLiveData<List<File>>()
-    val lockedFiles: LiveData<List<File>> get() = _lockedFiles
 
     private val _permissionNeededForDelete = MutableLiveData<IntentSender?>()
     val permissionNeededForDelete: LiveData<IntentSender?> = _permissionNeededForDelete
 
-    private val _status = MutableLiveData<STATUS>(STATUS.PENDING)
+    private val _status = MutableLiveData(STATUS.PENDING)
     val status: LiveData<STATUS> = _status
+
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun getBuckets(fileType: String) {
         viewModelScope.launch {
-            val buckets: Map<String, Bucket> =
+            val buckets: Map<Long, Bucket> =
                 when (fileType) {
                     IMAGE_MEDIA -> fileRepository.getAllImagesBucketsName()
                     VIDEO_MEDIA -> fileRepository.getAllVideosBucketsName()
                     AUDIO_MEDIA -> fileRepository.getAllAudiosBucketsName()
-                    else -> emptyMap()
+                    else -> fileRepository.getAllDocumentsBucketsName()
                 }
             _buckets.postValue(buckets)
         }
     }
 
-    fun getFiles(bucketName: String, fileType: String) {
+    @RequiresApi(Build.VERSION_CODES.Q)
+    fun getFiles(bucketId: Long, fileType: String) {
         viewModelScope.launch {
             _files.value = when (fileType) {
-                IMAGE_MEDIA -> fileRepository.getImagesOfBucket(bucketName)
-                VIDEO_MEDIA -> fileRepository.getVideosOfBucket(bucketName)
-                AUDIO_MEDIA -> fileRepository.getAudiosOfBucket(bucketName)
-                else -> emptyList()
+                IMAGE_MEDIA -> fileRepository.getImagesOfBucket(bucketId)
+                VIDEO_MEDIA -> fileRepository.getVideosOfBucket(bucketId)
+                AUDIO_MEDIA -> fileRepository.getAudiosOfBucket(bucketId)
+                else -> {
+                    fileRepository.getDocumentsOfBucket(bucketId)
+                }
             }
-        }
-    }
-
-    fun getLockedFiles(folder: String, type: String?) {
-        Log.d("FileViewModel", "Get locked files")
-        viewModelScope.launch {
-            val f = fileRepository.getLockedFiles(folder, type)
-            Log.d("FileViewModel", "Locked files: ${f.size}")
-            _lockedFiles.postValue(f)
         }
     }
 
@@ -96,53 +99,119 @@ class FileViewModel(
         _selectedFiles.postValue(currentList!!)
     }
 
-    fun clearSelectedFiles() {
-        val currentList = _selectedFiles.value?.toMutableList()
-        currentList?.clear()
-        _selectedFiles.postValue(currentList!!)
 
-    }
-
-    private suspend fun readFile(path: String): ByteArray {
-        return fileRepository.readFile(path)
-    }
-
-    private suspend fun createAndWrite(
+    private suspend fun encryptFile(
+        filePath: String,
         fileName: String,
-        data: ByteArray,
-        fileType: String
-    ): Boolean {
-        return fileRepository.createAndWriteFile(fileName, data, fileType)
+        fileType: String,
+        folderName: String
+    ): Pair<String, File> {
+        //return Crypto().addRandomBytes(filePath, 56)
+
+        return Crypto(application.applicationContext).encryptFile(
+            filePath,
+            fileName,
+            fileType,
+            folderName
+        )
     }
 
-    fun encryptFile(file: ByteArray): Pair<String, ByteArray> {
-        return Crypto().addRandomBytes(file, 56)
-    }
-
-    fun decryptFile(file: ByteArray, encryptionInfo: String): ByteArray {
-        return Crypto().restoreOriginalArray(file, encryptionInfo)
-    }
 
     fun lockFile(fileType: String) {
         _status.value = STATUS.DOING
         val lockedFile = _selectedFiles.value
-        Log.d("FileViewModel", "Start lock file")
         lockedFile?.let {
             viewModelScope.launch {
                 val file = lockedFile[0]
-                Log.d("FileViewModel", "Locked file: ${file.path}")
-                Log.d("FileViewModel", "Locked file type: $fileType")
-                val data = readFile(file.path)
-                val (encryptInformation, encryptedData) = encryptFile(data)
-                Log.d("FileViewModel", "Selected files: ${encryptedData.size}")
-                //KeysRepository(requireActivity().application).test1(encryptInfo)
-                val response = createAndWrite(file.name, encryptedData, fileType)
-                Log.d("File VM", response.toString())
-                keysRepository.storeMKey(file.name, encryptInformation)
-                Log.d("Encrypt information", encryptInformation)
-                //performDeleteMediaFile(file)
+                val (encryptInformation, encryptFile) = encryptFile(
+                    file.path,
+                    file.name,
+                    fileType,
+                    file.bucketName
+                )
+
+                keysRepository.storeMKey(encryptFile.name, encryptInformation)
+                Log.d("FileViewModel", "Locked file: ${encryptFile.absolutePath}")
+                val currentFiles = _files.value?.toMutableList()
+                currentFiles?.remove(file)
+                _files.postValue(currentFiles!!)
+
+                val selectedList = _selectedFiles.value?.toMutableList()
+                selectedList?.remove(file)
+                _selectedFiles.postValue(selectedList!!)
+                val folder = FolderEntity(
+                    file.bucketId.toString() + fileType,
+                    file.bucketName,
+                    fileType,
+                    0,
+                    null,
+                    "folder"
+                )
+                folderRepository.insert(folder)
+                Log.d("Insert folder", "done")
+                val f = when (file) {
+                    is VideoProjection -> {
+                        FileEntity(
+                            encryptFile.name,
+                            encryptFile.name,
+                            file.size,
+                            file.path,
+                            fileType,
+                            file.bucketId.toString() + fileType,
+                            bitmapToString(file.thumbnail),
+                            encryptFile.absolutePath,
+                            file.date
+                        )
+                    }
+
+                    is ImageProjection -> {
+                        FileEntity(
+                            encryptFile.name,
+                            encryptFile.name,
+                            file.size,
+                            file.path,
+                            fileType,
+                            file.bucketId.toString() + fileType,
+                            bitmapToString(file.thumbnail),
+                            encryptFile.absolutePath,
+                            file.date
+                        )
+                    }
+
+                    else -> {
+                        FileEntity(
+                            encryptFile.name,
+                            encryptFile.name,
+                            file.size,
+                            file.path,
+                            fileType,
+                            file.bucketId.toString() + fileType,
+                            null,
+                            encryptFile.absolutePath,
+                            file.date
+                        )
+                    }
+                }
+
+                val index = fileRepository.insertFileIntoDb(f)
+
+                if (index != (-1).toLong()) {
+                    var parentId: String? = file.bucketId.toString() + fileType
+                    Log.d("change folder", "start")
+                    while (parentId != null) {
+                        folderRepository.increaseOne(parentId)
+                        val fd = folderRepository.getById(parentId)
+
+                        Log.d(
+                            "FileViewModel",
+                            "Parent id: ${folder.name} ${folder.id} ${folder.parentId}"
+                        )
+                        parentId = fd.parentId
+                    }
+                    Log.d("change folder", "done")
+                }
+                performDeleteMediaFile(file)
                 _status.value = STATUS.DONE
-                Log.d("FileViewModel", "End lock file ${status.value}")
             }
 
 
@@ -181,12 +250,13 @@ class FileViewModel(
     class FileViewModelFactory(
         private val app: Application,
         private val fileRepository: FileRepository,
-        private val keysRepository: KeysRepository
+        private val keysRepository: KeysRepository,
+        private val folderRepository: FolderRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
             if (modelClass.isAssignableFrom(FileViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return FileViewModel(app, fileRepository, keysRepository) as T
+                return FileViewModel(app, fileRepository, keysRepository, folderRepository) as T
             }
             throw IllegalArgumentException("Unable to construct file viewmodel")
         }

@@ -1,7 +1,9 @@
 package com.example.doan.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.asLiveData
@@ -16,12 +18,24 @@ class FolderViewModel(
     private val folderRepository: FolderRepository
 ) : ViewModel() {
 
-    val folders : LiveData<List<FolderEntity>> = folderRepository.getAllFolder().asLiveData()
+    val rootFolders : LiveData<List<FolderEntity>> = folderRepository.getAllRootFolder().asLiveData()
 
-
+    private val _folders =  MutableLiveData<List<FolderEntity>> ()
+    val folders : LiveData<List<FolderEntity>> = _folders
     fun insertAll(folders: List<FolderEntity>) = viewModelScope.launch {
         folderRepository.insertAll(folders)
     }
+
+    fun getAllFolders(folderId: String) {
+        viewModelScope.launch {
+            val f = folderRepository.getAllChildFolder(folderId)
+            Log.d("FolderViewModel", "getAllFolders: $folderId")
+            Log.d("FolderViewModel", "getAllFolders: ${f.size}")
+            _folders.postValue(f)
+        }
+    }
+
+
 
     class FolderFactory(
         private val app: Application,

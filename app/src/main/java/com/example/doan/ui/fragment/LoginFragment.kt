@@ -66,8 +66,6 @@ class LoginFragment : Fragment() {
             }
         }
         if(viewModel.isFirstTimeAccess()) {
-
-
             findNavController().navigate(R.id.register_fragment)
         }
 

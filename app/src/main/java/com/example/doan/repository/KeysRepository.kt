@@ -40,6 +40,11 @@ class KeysRepository(val application: Application) {
 
     fun getKey(alias: String) : String {
         val key = keyStore.getKey(alias, null)
+        val aliases = keyStore.aliases()
+        while (aliases.hasMoreElements()) {
+            val ali = aliases.nextElement()
+            Log.d("A", "Alias: $ali")
+        }
         return String(key.encoded, Charsets.UTF_8)
     }
 

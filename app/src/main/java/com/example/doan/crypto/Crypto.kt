@@ -1,62 +1,148 @@
 package com.example.doan.crypto
 
+import android.content.Context
+import android.util.Log
+import com.example.doan.utils.getLockedFileRootPath
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.util.UUID
 import kotlin.random.Random
 
-class Crypto {
-    private fun insertByte(originalArray: ByteArray, byteToInsert: Byte, index: Int): ByteArray {
-        val newArray = ByteArray(originalArray.size + 1)
-        System.arraycopy(originalArray, 0, newArray, 0, index)
-        newArray[index] = byteToInsert
-        System.arraycopy(originalArray, index, newArray, index + 1, originalArray.size - index)
-        return newArray
-    }
-     fun addRandomBytes(originalArray: ByteArray, n: Int): Pair<String, ByteArray> {
-        val random = Random.Default
-        var result = ""
-        var newArray = ByteArray(originalArray.size)
-        System.arraycopy(originalArray, 0, newArray, 0, originalArray.size)
+class Crypto(
+    private val context: Context,
+) {
 
-        repeat(n) {
-            val randomBytes = random.nextBytes(1)
-            val randomPosition = random.nextInt(0, originalArray.size - 1)
-            result += "${randomBytes[0]}:$randomPosition;"
-            newArray = insertByte(newArray, randomBytes[0], randomPosition)
-        }
-
-        return  Pair(result.substring(0, result.length-1), newArray)
-    }
-
-    fun restoreOriginalArray(modifiedArray: ByteArray, encodedInfo: String): ByteArray {
-        val insertionInfoList = encodedInfo.split(";")
-        println(insertionInfoList)
-        var restoredArray = ByteArray(modifiedArray.size)
-        System.arraycopy(modifiedArray,0,restoredArray,0,modifiedArray.size)
-        var newArray = ByteArray(modifiedArray.size)
-        for (i in insertionInfoList.size -1  downTo 0) {
-            val position = insertionInfoList[i].split(":")[1].toInt()
-
-            newArray = ByteArray(restoredArray.size -1 )
-            System.arraycopy(restoredArray,0, newArray, 0, position )
-            if(position + 1 < restoredArray.size) {
-                System.arraycopy(restoredArray, position+1, newArray, position, restoredArray.size - position - 1)
+    suspend fun encryptFile(
+        filePath: String,
+        fileName: String,
+        fileType: String,
+        folderName: String
+    ): Pair<String, File> {
+        return withContext(Dispatchers.IO) {
+            var encryptedInfo = ""
+            val random = Random.Default
+            val indexOfLines = mutableListOf<Long>()
+            val file = File(filePath)
+            val numberOfBlock = file.length() / 1024 + 1
+            repeat(1024) {
+                indexOfLines.add(random.nextLong(0, numberOfBlock - 2))
             }
+            indexOfLines.sort()
+            val inputStream = FileInputStream(filePath)
+            val uuid = UUID.randomUUID().toString()
+            val destinationFolder = File(
+                getLockedFileRootPath(context, fileType) , folderName
+            )
+            if(!destinationFolder.exists()) {
+                destinationFolder.mkdirs()
+            }
+            val destinationFile = File(
+                destinationFolder.absolutePath,
+                fileName.substringBeforeLast(".") + uuid + "." + fileName.substringAfterLast(".")
+            )
+            val outputStream = FileOutputStream(destinationFile.absolutePath)
 
-            restoredArray = newArray
+            val buffer = ByteArray(1024)
+            var length: Int
+            var addedByte: ByteArray
+            var count = 0
+            var index = 0
+            while (inputStream.read(buffer).also { length = it } > 0) {
+                outputStream.write(buffer, 0, length)
+                if (index < indexOfLines.size && count.toLong() == indexOfLines[index]) {
+                    while (index < indexOfLines.size && count.toLong() == indexOfLines[index]) {
+                        addedByte = random.nextBytes(1)
+                        outputStream.write(addedByte, 0, 1)
+                        encryptedInfo += "$count:${addedByte[0]};"
+                        index++
+                    }
+                }
+                count++
+            }
+            inputStream.close()
+            outputStream.close()
+            Pair(encryptedInfo.substring(0, encryptedInfo.length - 1), destinationFile)
         }
-
-        return restoredArray
     }
 
-    fun encrypt(input: String, key: String, iv: String) : String {
+    suspend fun decryptFile(filePath: String, fileName: String, encryptionInfo: String): File {
+        return withContext(Dispatchers.IO) {
+            Log.d("encryptionInfo", encryptionInfo)
+            val encryptionList = encryptionInfo.split(";")
+            val encryptionMap = mutableMapOf<Long, Int>()
+            encryptionList.forEach {
+                val pair = it.split(":")
+                if (encryptionMap.contains(pair[0].toLong())) {
+                    encryptionMap[pair[0].toLong()] = encryptionMap[pair[0].toLong()]!! + 1
+                } else {
+                    encryptionMap[pair[0].toLong()] = 1
+                }
+            }
+            Log.d("encryptionList", encryptionList.joinToString(","))
+            val inputStream = FileInputStream(filePath)
+            val cacheFile = File(context.externalCacheDir, fileName)
+            val outputStream = FileOutputStream(cacheFile.absolutePath)
+            val buffer = ByteArray(1024)
+            var length: Int
+            var count: Long = 0
+            while (inputStream.read(buffer).also { length = it } > 0) {
+                outputStream.write(buffer, 0, length)
+                if (encryptionMap.contains(count)) {
+                    inputStream.read(ByteArray(encryptionMap[count]!!))
+                }
+                count++
+            }
+            inputStream.close()
+            outputStream.close()
+            cacheFile
+        }
+    }
+    suspend fun decryptFileToOriginPath(filePath: String, fileName: String, originPath: String, encryptionInfo: String) : File {
+        return withContext(Dispatchers.IO) {
+            Log.d("encryptionInfo", encryptionInfo)
+            val encryptionList = encryptionInfo.split(";")
+            val encryptionMap = mutableMapOf<Long, Int>()
+            encryptionList.forEach {
+                val pair = it.split(":")
+                if (encryptionMap.contains(pair[0].toLong())) {
+                    encryptionMap[pair[0].toLong()] = encryptionMap[pair[0].toLong()]!! + 1
+                } else {
+                    encryptionMap[pair[0].toLong()] = 1
+                }
+            }
+            Log.d("encryptionList", encryptionList.joinToString(","))
+            val inputStream = FileInputStream(filePath)
+            val originFile = File(originPath)
+            val outputStream = FileOutputStream(originFile.absolutePath)
+            val buffer = ByteArray(1024)
+            var length: Int
+            var count: Long = 0
+            while (inputStream.read(buffer).also { length = it } > 0) {
+                outputStream.write(buffer, 0, length)
+                if (encryptionMap.contains(count)) {
+                    inputStream.read(ByteArray(encryptionMap[count]!!))
+                }
+                count++
+            }
+            inputStream.close()
+            outputStream.close()
+            originFile
+        }
+    }
+    fun encrypt(input: String, key: String, iv: String): String {
 
         val result = encryptGCM(input, input.length, key, key.length, iv, iv.length)
         return result
     }
 
-    fun decrypt(ciphertext: String, key: String, iv: String) : String {
+    fun decrypt(ciphertext: String, key: String, iv: String): String {
 
         return decryptGCM(ciphertext, key, iv)
     }
+
     companion object {
 
 
@@ -65,8 +151,16 @@ class Crypto {
         }
     }
 
-    private external fun encryptGCM(plaintext: String, plaintextLength: Int, key: String , keySize: Int, iv: String, ivSize: Int) : String
-    private external fun decryptGCM(ciphertext: String, key: String ,  iv: String) : String
+    private external fun encryptGCM(
+        plaintext: String,
+        plaintextLength: Int,
+        key: String,
+        keySize: Int,
+        iv: String,
+        ivSize: Int
+    ): String
+
+    private external fun decryptGCM(ciphertext: String, key: String, iv: String): String
 
     //private external fun loadEncrypt(s: ByteArray): ByteArray
 

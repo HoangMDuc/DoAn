@@ -9,14 +9,25 @@ import kotlinx.coroutines.withContext
 class FolderRepository(private val appDatabase: AppDatabase) {
 
 
-    fun getAllFolder() : Flow<List<FolderEntity>> {
+    fun getAllRootFolder() : Flow<List<FolderEntity>> {
 
-        return appDatabase.folderDao().getAllFolders()
+        return appDatabase.folderDao().getAllRootFolders()
     }
 
+    suspend fun getAllChildFolder(id: String) : List<FolderEntity> {
+        return withContext(Dispatchers.IO) {
+            appDatabase.folderDao().getAllChildOf(id)
+        }
+    }
     suspend fun getById(id: String) : FolderEntity {
         return withContext(Dispatchers.IO) {
             appDatabase.folderDao().getById(id)
+        }
+    }
+
+    suspend fun decreaseQuantity(folderID: String) {
+        return withContext(Dispatchers.IO) {
+            appDatabase.folderDao().decreaseQuantity(folderID)
         }
     }
 
@@ -36,6 +47,18 @@ class FolderRepository(private val appDatabase: AppDatabase) {
     suspend fun update(quantity: Int, id : String) {
         return withContext(Dispatchers.IO) {
             appDatabase.folderDao().update(quantity, id)
+        }
+    }
+
+    suspend fun increaseOne(id: String) {
+        withContext(Dispatchers.IO) {
+            appDatabase.folderDao().increaseQuantity(id)
+        }
+    }
+
+    suspend fun delete(id: String) {
+        withContext(Dispatchers.IO) {
+            appDatabase.folderDao().deleteFolder(id)
         }
     }
 }

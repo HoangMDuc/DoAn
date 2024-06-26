@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import com.example.doan.database.FileProjections
+import com.example.doan.database.entity.FileEntity
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Locale
@@ -57,5 +58,18 @@ fun getFileInfo(file: File) : String {
     }
     val sizeFormat = String.format(Locale.US,"%.2f", size)
     val info = "${formatter.format(file.lastModified())}, $sizeFormat ${storageUnits[i]}, ${file.extension.uppercase(Locale.ENGLISH)}"
+    return info
+}
+
+fun getFileInfo(file: FileEntity) : String {
+    var i = 0
+    var size : Double = file.size.toDouble()
+    while(size >= 1000) {
+        size /= 1000
+        i++
+    }
+    val extension = file.name.substringAfterLast(".").uppercase(Locale.ENGLISH)
+    val sizeFormat = String.format(Locale.US,"%.2f", size)
+    val info = "${file.updateAt}, $sizeFormat ${storageUnits[i]}, $extension"
     return info
 }

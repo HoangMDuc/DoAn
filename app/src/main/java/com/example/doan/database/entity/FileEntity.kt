@@ -17,11 +17,14 @@ import androidx.room.PrimaryKey
 )
 data class FileEntity(
 
-    @PrimaryKey val id: Long,
+    @PrimaryKey val id: String,
     val name: String,
     val size: Long,
     @ColumnInfo(name = "origin_path") val originPath: String,
     val type: String,
-    @ColumnInfo(name = "parent_id", index = true) val parentID: String
+    @ColumnInfo(name = "parent_id", index = true) val parentID: String,
+    val thumbnail: String?,
+    @ColumnInfo(name = "current_path") val currentPath: String,
+    @ColumnInfo(name = "update_at") val updateAt: String
 ) {
 }

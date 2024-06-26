@@ -1,5 +1,6 @@
 package com.example.doan.adapter
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,7 +13,7 @@ import com.example.doan.R
 import com.example.doan.database.Bucket
 import com.example.doan.ui.fragment.FileListFragmentDirections
 
-class FolderAdapter(private val buckets:  Map<String, Bucket>, private val fileType: String)  : RecyclerView.Adapter<FolderAdapter.FolderViewHolder>() {
+class FolderAdapter(private val buckets:  Map<Long, Bucket>, private val fileType: String)  : RecyclerView.Adapter<FolderAdapter.FolderViewHolder>() {
 
     class FolderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val folderImage : ImageView = itemView.findViewById(R.id.folder_image)
@@ -30,8 +31,8 @@ class FolderAdapter(private val buckets:  Map<String, Bucket>, private val fileT
     }
 
     override fun onBindViewHolder(holder: FolderViewHolder, position: Int) {
-        val name = buckets.keys.elementAt(position)
-        val bucket = buckets[buckets.keys.elementAt(position)]
+        val id = buckets.keys.elementAt(position)
+        val bucket = buckets[id]
         if(bucket == null) {
             holder.folderImage.setImageResource(R.drawable.folder)
         }else {
@@ -39,15 +40,22 @@ class FolderAdapter(private val buckets:  Map<String, Bucket>, private val fileT
             Glide.with(holder.folderImage)
                 .load(bucket.thumbnail)
                 .placeholder(R.drawable.loading_img)
-                .error(R.drawable.baseline_audio_file_24)
+                .error(R.drawable.file)
                 .into(holder.folderImage)
         }
-        holder.folderName.text = name
+        if (bucket != null) {
+            holder.folderName.text = bucket.bucketName
+        }
+        if (bucket != null) {
+            Log.d("FolderAdapter", "onBindViewHolder: ${bucket.bucketName}")
+        }
         holder.folderQuantity.text = bucket?.numberOfFiles?.toString() ?: "0"
 
         holder.itemView.setOnClickListener {
-            val action = FileListFragmentDirections.actionFileListFragmentSelf(name, fileType)
-            holder.itemView.findNavController().navigate(action)
+            val action = bucket?.let { it1 -> FileListFragmentDirections.actionFileListFragmentSelf( it1.bucketName, fileType, id) }
+            if (action != null) {
+                holder.itemView.findNavController().navigate(action)
+            }
         }
     }
 

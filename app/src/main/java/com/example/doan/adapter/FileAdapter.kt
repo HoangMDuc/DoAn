@@ -38,7 +38,7 @@ class FileAdapter(
         val file = getItem(position)
        // holder.fileImage.setImageBitmap(file.thumbnail)
 
-        var errorImage = if(file is AudioProjection) {
+        val errorImage = if(file is AudioProjection) {
             R.drawable.baseline_audio_file_24
         }else {
             R.drawable.file
@@ -54,8 +54,7 @@ class FileAdapter(
         holder.fileInfo.text = getFileInfo(file)
         holder.view.setOnClickListener {
             clickListener(holder.fileImage, file, holder.view)
-//            val byteArray = bitmapToByteArray(file.thumbnail)
-//            val string = Base64.encodeToString(byteArray, Base64.DEFAULT)
+
         }
     }
 
