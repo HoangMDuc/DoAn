@@ -26,8 +26,10 @@ import com.example.doan.repository.KeysRepository
 import com.example.doan.ui.dialog.LoadingDialog
 import com.example.doan.utils.STATUS
 import com.example.doan.utils.VIEW_ALL
+import com.example.doan.utils.stringToBitmap
 import com.example.doan.viewmodel.FolderViewModel
 import com.example.doan.viewmodel.LockedFileViewModel
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class LockedFileListFragment : Fragment() {
 
@@ -87,12 +89,40 @@ class LockedFileListFragment : Fragment() {
             }
         }
         binding.unlockFileButton.setOnClickListener {
-            handleUnlockFile()
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Unlock file")
+                .setMessage("Are you sure you want to unlock this file?")
+                .setCancelable(false)
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setPositiveButton("Unlock") { _, _ ->
+                    handleUnlockFile()
+                }
+                .show()
         }
 
         binding.deleteFileButton.setOnClickListener {
-            handleDeleteFile()
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Delete file")
+                .setMessage("Are you sure you want to delete this file?")
+                .setCancelable(false)
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setPositiveButton("Delete") { _, _ ->
+                    handleDeleteFile()
+                }
+                .show()
         }
+
+        binding.shareFileButton.setOnClickListener {
+            handleShareFile()
+        }
+    }
+
+    private fun handleShareFile() {
+        lockedFileViewModel.shareFile()
     }
 
     private fun handleDeleteFile() {
@@ -100,8 +130,6 @@ class LockedFileListFragment : Fragment() {
     }
 
     private fun displayUI() {
-
-
         fileType = args.type
         val folderName = args.folder
         val folderId = args.folderId
@@ -184,7 +212,7 @@ class LockedFileListFragment : Fragment() {
                 )
             )
             Glide.with(imageView)
-                .load(file.thumbnail)
+                .load(file.thumbnail?.let { stringToBitmap(it) })
                 .error(R.drawable.file)
                 .placeholder(R.drawable.loading_img)
                 .into(imageView)
@@ -211,6 +239,7 @@ class LockedFileListFragment : Fragment() {
     private fun handleUnlockFile() {
         lockedFileViewModel.unlockFile()
     }
+
     override fun onDestroy() {
         super.onDestroy()
         lockedFileViewModel.cleanCacheFile()

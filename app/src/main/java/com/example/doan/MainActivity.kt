@@ -10,6 +10,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.drawerlayout.widget.DrawerLayout
@@ -20,19 +21,17 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.example.doan.databinding.ActivityMainBinding
-import com.example.doan.repository.KeysRepository
-import com.example.doan.utils.IMAGE_MEDIA
-import com.example.doan.utils.getLockedFileRootPath
 import com.google.android.material.navigation.NavigationView
 
 
-class MainActivity : AppCompatActivity(){
+class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var slideNavView: NavigationView
+
     @RequiresApi(Build.VERSION_CODES.R)
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -46,8 +45,6 @@ class MainActivity : AppCompatActivity(){
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-
         val navHostFragment =
             supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
@@ -71,46 +68,33 @@ class MainActivity : AppCompatActivity(){
             }
 
         }
-
         if (!checkPermission(READ_IMAGE_PERMISSION)) {
-            requestPermissions(arrayOf(Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO,Manifest.permission.READ_MEDIA_AUDIO), 1)
+            requestPermissions(
+                arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO,
+                    Manifest.permission.READ_MEDIA_AUDIO,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ), 1
+            )
         }
 
+        if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
 
-        val root = getExternalFilesDirs(null)
-        Log.d("Tag", getLockedFileRootPath(applicationContext, IMAGE_MEDIA))
-
-        if (root != null) {
-            for (r in root) {
-                val files = r.listFiles()
-                Log.d("External root", r.absolutePath)
-                if (files != null) {
-                    for (f in files) {
-                        Log.d("external", f.absolutePath)
-                    }
+            AlertDialog.Builder(this)
+                .setTitle("Request Needed Permission")
+                .setMessage("This app needs file access permissions to function properly.")
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
                 }
-            }
-
+                .setPositiveButton("Go settings") { _, _ ->
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    startActivityForResult(intent, 22)
+                }
+                .show()
         }
 
-        Log.d("Activity", Environment.getExternalStorageDirectory().absolutePath)
-        //Log.d("Activity", getLockedFilePath(applicationContext, null))
-        Log.d("Activity", getExternalFilesDirs(Environment.DIRECTORY_DOCUMENTS)[0].absolutePath)
-        Log.d("Activity", "${checkPermission(Manifest.permission.READ_MEDIA_VIDEO)}")
-        Log.d("Activity", "${checkPermission(Manifest.permission.READ_MEDIA_IMAGES)}")
-        Log.d("Activity", "${checkPermission(Manifest.permission.READ_MEDIA_AUDIO)}")
-//        if(checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-//            requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE), 2)
-//        }
-
-        Log.d("AC",Environment.isExternalStorageManager().toString())
-        if(Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
-            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-
-            startActivityForResult(intent, 22)
-        }
-
-        KeysRepository(application).test1("")
     }
 
 
@@ -137,27 +121,15 @@ class MainActivity : AppCompatActivity(){
 
         @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         const val READ_IMAGE_PERMISSION = Manifest.permission.READ_MEDIA_IMAGES
+
         @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         const val READ_VIDEO_PERMISSION = Manifest.permission.READ_MEDIA_VIDEO
+
         @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         const val READ_AUDIO_PERMISSION = Manifest.permission.READ_MEDIA_AUDIO
 
     }
 
-    private fun requestPermission() {
-
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if(requestCode == 22) {
-            Log.d("Activity", "OK1")
-        }
-    }
 
     private fun checkPermission(permissions: String): Boolean {
 
@@ -166,7 +138,6 @@ class MainActivity : AppCompatActivity(){
             permissions
         ) == PackageManager.PERMISSION_GRANTED
     }
-
 
 
 }

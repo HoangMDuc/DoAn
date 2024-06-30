@@ -61,52 +61,56 @@ class LockerFileAdapter(
         Log.d("file adapter", file.size.toString())
         coroutineScope.launch {
             val encryptInformation = keysRepository.getKey(file.name)
-            Log.d("EN", encryptInformation)
+            encryptInformation?.let {
+                Log.d("EN", encryptInformation)
 
-            when (fileType) {
-                IMAGE_MEDIA -> {
-                    Glide.with(holder.fileImage)
-                        .load(file.thumbnail?.let { stringToBitmap(it) })
-                        .placeholder(R.drawable.loading_img)
-                        .error(R.drawable.file)
-                        .into(holder.fileImage)
+                when (fileType) {
+                    IMAGE_MEDIA -> {
+                        Glide.with(holder.fileImage)
+                            .load(file.thumbnail?.let { stringToBitmap(it) })
+                            .placeholder(R.drawable.loading_img)
+                            .error(R.drawable.file)
+                            .into(holder.fileImage)
 
-                    Log.d("file adapter", formatter.format(Date()))
+                        Log.d("file adapter", formatter.format(Date()))
+                    }
+
+                    VIDEO_MEDIA -> {
+                        Glide.with(holder.fileImage)
+                            .load(file.thumbnail?.let { stringToBitmap(it) })
+                            .placeholder(R.drawable.loading_img)
+                            .error(R.drawable.file)
+                            .into(holder.fileImage)
+
+                        Log.d("file adapter", formatter.format(Date()))
+
+                    }
+
+                    AUDIO_MEDIA -> {
+                        Glide.with(holder.fileImage)
+                            .load(R.drawable.baseline_audio_file_24)
+                            .placeholder(R.drawable.loading_img)
+                            .error(R.drawable.baseline_audio_file_24)
+                            .into(holder.fileImage)
+                    }
+
+                    DOCUMENT -> {
+                        Glide.with(holder.fileImage)
+                            .load(R.drawable.file)
+                            .placeholder(R.drawable.loading_img)
+                            .error(R.drawable.file)
+                            .into(holder.fileImage)
+                    }
                 }
-
-                VIDEO_MEDIA -> {
-                    Glide.with(holder.fileImage)
-                        .load(file.thumbnail?.let { stringToBitmap(it) })
-                        .placeholder(R.drawable.loading_img)
-                        .error(R.drawable.file)
-                        .into(holder.fileImage)
-
-                    Log.d("file adapter", formatter.format(Date()))
-
+                holder.view.setOnClickListener {
+                    handleClickFile(file, encryptInformation, holder.fileImage, holder.view)
                 }
-
-                AUDIO_MEDIA -> {
-                    Glide.with(holder.fileImage)
-                        .load(R.drawable.baseline_audio_file_24)
-                        .placeholder(R.drawable.loading_img)
-                        .error(R.drawable.baseline_audio_file_24)
-                        .into(holder.fileImage)
-                }
-                DOCUMENT -> {
-                    Glide.with(holder.fileImage)
-                        .load(R.drawable.file)
-                        .placeholder(R.drawable.loading_img)
-                        .error(R.drawable.file)
-                        .into(holder.fileImage)
+                holder.view.setOnLongClickListener {
+                    handleLongClickFile(file, holder.fileImage, holder.view)
+                    true
                 }
             }
-            holder.view.setOnClickListener {
-                handleClickFile(file, encryptInformation, holder.fileImage, holder.view)
-            }
-            holder.view.setOnLongClickListener{
-                handleLongClickFile(file, holder.fileImage, holder.view)
-                true
-            }
+
 
         }
     }

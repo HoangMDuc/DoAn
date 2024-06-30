@@ -56,4 +56,24 @@
     <string name="unlock">Unlock</string>
     <string name="delete">Delete</string>
     <string name="share">Share</string>
+    <string name="password_settings">Password Settings</string>
+    <string name="active_password">Active password</string>
+    <string name="change_master_password">Change master password</string>
+    <string name="open">open</string>
+    <string name="recovery_email_settings">Recovery email settings</string>
+    <string name="email_notice">You must have an email address, so that we send your password when you forgot</string>
+    <string name="change_recovery_email">Change recovery email</string>
+    <string name="authenticate_title">Enter your master password</string>
+    <string name="ok">OK</string>
+    <string name="save">Save</string>
+    <string name="new_email">New email</string>
+    <string name="enter_new_email">Enter new email</string>
+    <string name="enter_your_new_password">Enter your new password</string>
+    <string name="new_password">New password</string>
+    <string name="enter_new_password">Enter new password</string>
+    <string name="confirm_password">Confirm new password</string>
+    <string name="password_confirmation">Password confirmation</string>
+    <string name="enter_new_master_password">Enter new master password</string>
+    <string name="new_master_password">New master password</string>
+    <string name="forgot_password_click_here">Forgot password? Click here</string>
 </resources>

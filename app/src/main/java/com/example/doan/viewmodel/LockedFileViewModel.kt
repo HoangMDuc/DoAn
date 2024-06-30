@@ -3,7 +3,11 @@ package com.example.doan.viewmodel
 import android.app.Application
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaScannerConnection
+import android.net.Uri
 import android.util.Log
 import android.webkit.MimeTypeMap
 import android.widget.Toast
@@ -20,8 +24,10 @@ import com.example.doan.repository.FileRepository
 import com.example.doan.repository.FolderRepository
 import com.example.doan.repository.KeysRepository
 import com.example.doan.utils.STATUS
+import com.example.doan.utils.decodeString
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.FileOutputStream
 
 class LockedFileViewModel(
     private val application: Application,
@@ -123,66 +129,111 @@ class LockedFileViewModel(
 
     fun unlockFile() {
         _status.value = STATUS.DOING
-        val file = selectedFile.value?.get(0)
+        val files = selectedFile.value
 
-        file?.let {
+        files?.let {
             viewModelScope.launch {
-                val encryptedFile = File(file.currentPath)
-                Log.d("LFViewModel", encryptedFile.absolutePath)
-                if (encryptedFile.exists()) {
-                    Log.d("LFViewModel", "Exits")
-                    Log.d("LFViewModel", "Exits")
-                    val encryptionInfo = keysRepository.getKey(encryptedFile.name)
-                    val originFile = Crypto(application.applicationContext).decryptFileToOriginPath(
-                        encryptedFile.absolutePath,
-                        encryptedFile.name,
-                        file.originPath,
-                        encryptionInfo
-                    )
-                    if (originFile.exists()) {
-                        MediaScannerConnection.scanFile(
-                            application.applicationContext,
-                            arrayOf(originFile.absolutePath),
-                            null
-                        ) { path, uri ->
-                            Log.d("LFViewModel", "Scanned $path $uri")
-                        }
-                        Log.d("EncryptedFile path", encryptedFile.absolutePath)
-                        encryptedFile.delete()
+                for (file in files) {
+                    try {
+                        val encryptedFile = File(file.currentPath)
+                        Log.d("LFViewModel", encryptedFile.absolutePath)
+                        if (encryptedFile.exists()) {
+                            Log.d("LFViewModel", "Exits")
+                            Log.d("LFViewModel", "Exits")
+                            val encryptionInfo = keysRepository.getKey(encryptedFile.name)
+                            val cryptoKey = keysRepository.getKey("cryptoKey")
+                            val iv = keysRepository.getKey("iv")
+                            encryptionInfo?.let {
+                                Log.d("LFViewModel", "Co encryptInfo")
+                                val originFile =
+                                    if (cryptoKey != null && iv != null) {
+                                        Log.d("LFViewModel", "Co CryptoKey va IV")
+                                        val plainEncryptInfo =
+                                            Crypto(application.applicationContext)
+                                                .decrypt(
+                                                    decodeString(encryptionInfo),
+                                                    "add".toByteArray(),
+                                                    cryptoKey.toByteArray(),
+                                                    iv.toByteArray()
+                                                )
+                                        if (plainEncryptInfo != null) {
+                                            Log.d("LFViewModel", "Decrypt OK")
+                                            Log.d("LFViewModel", String(plainEncryptInfo))
+                                            Crypto(application.applicationContext).decryptFileToOriginPath(
+                                                encryptedFile.absolutePath,
+                                                encryptedFile.name,
+                                                file.originPath,
+                                                String(plainEncryptInfo)
+                                            )
+                                        } else {
+                                            Log.d("LFViewModel", "Decrypt Fail")
+                                            Crypto(application.applicationContext).decryptFileToOriginPath(
+                                                encryptedFile.absolutePath,
+                                                encryptedFile.name,
+                                                file.originPath,
+                                                encryptionInfo
+                                            )
+                                        }
+                                    } else {
+                                        Log.d("LFViewModel", "Khong Co encryptInfo")
+                                        Crypto(application.applicationContext).decryptFileToOriginPath(
+                                            encryptedFile.absolutePath,
+                                            encryptedFile.name,
+                                            file.originPath,
+                                            encryptionInfo
+                                        )
+                                    }
+                                if (originFile.exists()) {
+                                    MediaScannerConnection.scanFile(
+                                        application.applicationContext,
+                                        arrayOf(originFile.absolutePath),
+                                        null
+                                    ) { path, uri ->
+                                        Log.d("LFViewModel", "Scanned $path $uri")
+                                    }
+                                    Log.d("EncryptedFile path", encryptedFile.absolutePath)
+                                    encryptedFile.delete()
 
-                        fileRepository.deleteLockedFile(file.id)
+                                    fileRepository.deleteLockedFile(file.id)
 
-                        val currentList = lockedFiles.value?.toMutableList() ?: mutableListOf()
-                        currentList.remove(file)
-                        _lockedFiles.postValue(currentList)
+                                    val currentList =
+                                        lockedFiles.value?.toMutableList() ?: mutableListOf()
+                                    currentList.remove(file)
+                                    _lockedFiles.postValue(currentList)
 
-                        var parentId: String? = file.parentID
-                        while (parentId != null) {
-                            folderRepository.decreaseQuantity(parentId)
-                            val folder = folderRepository.getById(parentId)
-                            if (folder.fileQuantity < 1) {
-                                folderRepository.delete(folder.id)
+                                    var parentId: String? = file.parentID
+                                    while (parentId != null) {
+                                        folderRepository.decreaseQuantity(parentId)
+                                        val folder = folderRepository.getById(parentId)
+                                        if (folder.fileQuantity < 1) {
+                                            folderRepository.delete(folder.id)
+                                        }
+                                        parentId = folder.parentId
+                                    }
+                                    val selectedList = selectedFile.value?.toMutableList()
+                                    selectedList?.remove(file)
+                                    _selectedFile.postValue(selectedList!!)
+
+                                } else {
+                                    Toast.makeText(
+                                        application.applicationContext,
+                                        "Fail to unlock file",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                             }
-                            parentId = folder.parentId
+                        } else {
+                            Toast.makeText(
+                                application.applicationContext,
+                                "File not found to unlock",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            _status.value = STATUS.DONE
                         }
-                        val selectedList = selectedFile.value?.toMutableList()
-                        selectedList?.remove(file)
-                        _selectedFile.postValue(selectedList!!)
-
-                    } else {
-                        Toast.makeText(
-                            application.applicationContext,
-                            "Fail to unlock file",
-                            Toast.LENGTH_LONG
-                        ).show()
+                    } catch (e: Exception) {
+                        _status.value = STATUS.FAIL
+                        e.printStackTrace()
                     }
-                    _status.value = STATUS.DONE
-                } else {
-                    Toast.makeText(
-                        application.applicationContext,
-                        "File not found to unlock",
-                        Toast.LENGTH_LONG
-                    ).show()
                     _status.value = STATUS.DONE
                 }
             }
@@ -192,36 +243,140 @@ class LockedFileViewModel(
 
     fun deleteFile() {
         _status.value = STATUS.DOING
-        val file = selectedFile.value?.get(0)
-        file?.let {
+        val files = selectedFile.value
+        files?.let {
             viewModelScope.launch {
-                val encryptedFile = File(file.currentPath)
-                if(encryptedFile.exists()) {
-                    encryptedFile.delete()
-                    fileRepository.deleteLockedFile(file.id)
+                for (file in files) {
+                    try {
+                        val encryptedFile = File(file.currentPath)
+                        if (encryptedFile.exists()) {
+                            encryptedFile.delete()
+                            fileRepository.deleteLockedFile(file.id)
 
-                    val currentList = lockedFiles.value?.toMutableList() ?: mutableListOf()
-                    currentList.remove(file)
-                    _lockedFiles.postValue(currentList)
+                            val currentList = lockedFiles.value?.toMutableList() ?: mutableListOf()
+                            currentList.remove(file)
+                            _lockedFiles.postValue(currentList)
 
-                    var parentId: String? = file.parentID
-                    while (parentId != null) {
-                        folderRepository.decreaseQuantity(parentId)
-                        val folder = folderRepository.getById(parentId)
-                        if (folder.fileQuantity < 1) {
-                            folderRepository.delete(folder.id)
+                            var parentId: String? = file.parentID
+                            while (parentId != null) {
+                                folderRepository.decreaseQuantity(parentId)
+                                val folder = folderRepository.getById(parentId)
+                                if (folder.fileQuantity < 1) {
+                                    folderRepository.delete(folder.id)
+                                }
+                                parentId = folder.parentId
+                            }
+                            val selectedList = selectedFile.value?.toMutableList()
+                            selectedList?.remove(file)
+                            _selectedFile.postValue(selectedList!!)
                         }
-                        parentId = folder.parentId
+                    } catch (e: Exception) {
+                        _status.value = STATUS.FAIL
+                        e.printStackTrace()
                     }
-                    val selectedList = selectedFile.value?.toMutableList()
-                    selectedList?.remove(file)
-                    _selectedFile.postValue(selectedList!!)
                 }
                 _status.value = STATUS.DONE
 
             }
         }
 
+    }
+
+    fun shareFile() {
+        _status.value = STATUS.DOING
+        val files = selectedFile.value ?: emptyList()
+        viewModelScope.launch {
+            try {
+                val uris = mutableListOf<Uri>()
+                for (file in files) {
+                    val encryptionInfo = keysRepository.getKey(file.name)
+                    encryptionInfo?.let {
+                        var cacheFile = Crypto(application.applicationContext).decryptFile(
+                            file.currentPath,
+                            file.name,
+                            encryptionInfo
+                        )
+                        if (cacheFile.extension.equals("webp", true)) {
+                            val bitmap = BitmapFactory.decodeFile(cacheFile.absolutePath)
+                            val convertedFile = File(
+                                application.applicationContext.cacheDir,
+                                "${cacheFile.nameWithoutExtension}.jpg"
+                            )
+                            FileOutputStream(convertedFile).use { out ->
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                            }
+                            cacheFile = convertedFile
+                        }
+                        Log.d("Adapter123", cacheFile.absolutePath)
+                        val uri = FileProvider.getUriForFile(
+                            application.applicationContext,
+                            "${application.applicationContext.packageName}.provider",
+                            cacheFile
+                        )
+                        uris.add(uri)
+                    }
+                }
+                if (uris.isNotEmpty()) {
+                    Log.d("Adapter123", uris.size.toString())
+                    val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                        type = "*/*" // Bạn có thể điều chỉnh loại MIME nếu cần
+                        putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+
+                    Log.d("Adapter123", uris.size.toString())
+                    _status.value = STATUS.DONE
+                    try {
+                        val intentChooser = Intent.createChooser(intent, "Share files")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        val resolverInfos =
+                            application.applicationContext.packageManager.queryIntentActivities(
+                                intentChooser,
+                                PackageManager.MATCH_DEFAULT_ONLY
+                            )
+                        for (r in resolverInfos) {
+                            val packageName = r.activityInfo.packageName
+                            Log.d("Adapter123", packageName)
+                            for (uri in uris) {
+                                application.applicationContext.grantUriPermission(
+                                    packageName,
+                                    uri,
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                )
+                            }
+                        }
+                        application.applicationContext.startActivity(
+                            intentChooser
+                        )
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            application.applicationContext,
+                            "No application found to open these file types. Please download the required application.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        e.printStackTrace()
+                    }
+                } else {
+                    _status.value = STATUS.FAIL
+                    Toast.makeText(
+                        application.applicationContext,
+                        "No files to share",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                // _selectedFile.postValue(emptyList()) // Clear selected files after sharing
+            } catch (e: Exception) {
+                _status.value = STATUS.FAIL
+                Log.e("LFViewModel", "Error sharing files", e)
+                Toast.makeText(
+                    application.applicationContext,
+                    "Failed to share files",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
     class LockedFileViewModelFactory(

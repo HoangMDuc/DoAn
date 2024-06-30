@@ -27,6 +27,7 @@ import com.example.doan.utils.IMAGE_MEDIA
 import com.example.doan.utils.STATUS
 import com.example.doan.utils.VIDEO_MEDIA
 import com.example.doan.utils.bitmapToString
+import com.example.doan.utils.encodeByteArray
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -122,95 +123,113 @@ class FileViewModel(
         val lockedFile = _selectedFiles.value
         lockedFile?.let {
             viewModelScope.launch {
-                val file = lockedFile[0]
-                val (encryptInformation, encryptFile) = encryptFile(
-                    file.path,
-                    file.name,
-                    fileType,
-                    file.bucketName
-                )
-
-                keysRepository.storeMKey(encryptFile.name, encryptInformation)
-                Log.d("FileViewModel", "Locked file: ${encryptFile.absolutePath}")
-                val currentFiles = _files.value?.toMutableList()
-                currentFiles?.remove(file)
-                _files.postValue(currentFiles!!)
-
-                val selectedList = _selectedFiles.value?.toMutableList()
-                selectedList?.remove(file)
-                _selectedFiles.postValue(selectedList!!)
-                val folder = FolderEntity(
-                    file.bucketId.toString() + fileType,
-                    file.bucketName,
-                    fileType,
-                    0,
-                    null,
-                    "folder"
-                )
-                folderRepository.insert(folder)
-                Log.d("Insert folder", "done")
-                val f = when (file) {
-                    is VideoProjection -> {
-                        FileEntity(
-                            encryptFile.name,
-                            encryptFile.name,
-                            file.size,
+                for (file in lockedFile) {
+                    try {
+                        val (encryptInformation, encryptFile) = encryptFile(
                             file.path,
+                            file.name,
                             fileType,
-                            file.bucketId.toString() + fileType,
-                            bitmapToString(file.thumbnail),
-                            encryptFile.absolutePath,
-                            file.date
+                            file.bucketName
                         )
-                    }
+                        Log.d("FileVM", encryptInformation.length.toString())
+                        val cryptoKey = keysRepository.getKey("cryptoKey")
+                        val iv = keysRepository.getKey("iv")
+                        if(cryptoKey != null && iv != null) {
+                            val encryptedInfo = Crypto(application.applicationContext).encrypt(
+                                encryptInformation.toByteArray(),
+                                "add".toByteArray(),
+                                cryptoKey.toByteArray(),
+                                iv.toByteArray()
+                            )
+                            keysRepository.storeMKey(encryptFile.name, encodeByteArray(encryptedInfo))
+                        }else {
+                            keysRepository.storeMKey(encryptFile.name, encryptInformation)
+                        }
 
-                    is ImageProjection -> {
-                        FileEntity(
-                            encryptFile.name,
-                            encryptFile.name,
-                            file.size,
-                            file.path,
-                            fileType,
+                        Log.d("FileViewModel", "Locked file: ${encryptFile.absolutePath}")
+                        val currentFiles = _files.value?.toMutableList()
+                        currentFiles?.remove(file)
+                        _files.postValue(currentFiles!!)
+                        val selectedList = _selectedFiles.value?.toMutableList()
+                        selectedList?.remove(file)
+                        _selectedFiles.postValue(selectedList!!)
+                        val folder = FolderEntity(
                             file.bucketId.toString() + fileType,
-                            bitmapToString(file.thumbnail),
-                            encryptFile.absolutePath,
-                            file.date
-                        )
-                    }
-
-                    else -> {
-                        FileEntity(
-                            encryptFile.name,
-                            encryptFile.name,
-                            file.size,
-                            file.path,
+                            file.bucketName,
                             fileType,
-                            file.bucketId.toString() + fileType,
+                            0,
                             null,
-                            encryptFile.absolutePath,
-                            file.date
+                            "folder"
                         )
+                        folderRepository.insert(folder)
+                        Log.d("Insert folder", "done")
+                        val f = when (file) {
+                            is VideoProjection -> {
+                                FileEntity(
+                                    encryptFile.name,
+                                    encryptFile.name,
+                                    file.size,
+                                    file.path,
+                                    fileType,
+                                    file.bucketId.toString() + fileType,
+                                    bitmapToString(file.thumbnail),
+                                    encryptFile.absolutePath,
+                                    file.date
+                                )
+                            }
+
+                            is ImageProjection -> {
+                                FileEntity(
+                                    encryptFile.name,
+                                    encryptFile.name,
+                                    file.size,
+                                    file.path,
+                                    fileType,
+                                    file.bucketId.toString() + fileType,
+                                    bitmapToString(file.thumbnail),
+                                    encryptFile.absolutePath,
+                                    file.date
+                                )
+                            }
+
+                            else -> {
+                                FileEntity(
+                                    encryptFile.name,
+                                    encryptFile.name,
+                                    file.size,
+                                    file.path,
+                                    fileType,
+                                    file.bucketId.toString() + fileType,
+                                    null,
+                                    encryptFile.absolutePath,
+                                    file.date
+                                )
+                            }
+                        }
+
+                        val index = fileRepository.insertFileIntoDb(f)
+
+                        if (index != (-1).toLong()) {
+                            var parentId: String? = file.bucketId.toString() + fileType
+                            Log.d("change folder", "start")
+                            while (parentId != null) {
+                                folderRepository.increaseOne(parentId)
+                                val fd = folderRepository.getById(parentId)
+
+                                Log.d(
+                                    "FileViewModel",
+                                    "Parent id: ${folder.name} ${folder.id} ${folder.parentId}"
+                                )
+                                parentId = fd.parentId
+                            }
+                            Log.d("change folder", "done")
+                        }
+                        // performDeleteMediaFile(file)
+                    } catch (e: Exception) {
+                        _status.value = STATUS.FAIL
+                        e.printStackTrace()
                     }
                 }
-
-                val index = fileRepository.insertFileIntoDb(f)
-
-                if (index != (-1).toLong()) {
-                    var parentId: String? = file.bucketId.toString() + fileType
-                    Log.d("change folder", "start")
-                    while (parentId != null) {
-                        folderRepository.increaseOne(parentId)
-                        val fd = folderRepository.getById(parentId)
-
-                        Log.d(
-                            "FileViewModel",
-                            "Parent id: ${folder.name} ${folder.id} ${folder.parentId}"
-                        )
-                        parentId = fd.parentId
-                    }
-                    Log.d("change folder", "done")
-                }
-                performDeleteMediaFile(file)
                 _status.value = STATUS.DONE
             }
 

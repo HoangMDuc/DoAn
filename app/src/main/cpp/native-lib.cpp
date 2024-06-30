@@ -365,6 +365,10 @@ Java_com_example_doan_crypto_Crypto_decryptGCM(JNIEnv *env, jobject thiz, jstrin
     }
 }
 
+
+
+
+
 void test (unsigned char *input)
 {
     /*
@@ -510,4 +514,83 @@ Java_com_example_doan_repository_KeysRepository_genIV(JNIEnv *env, jobject thiz)
     }
 
     return  env->NewStringUTF(iv_binary.c_str());
+}
+extern "C"
+JNIEXPORT jbyteArray JNICALL
+Java_com_example_doan_crypto_Crypto_encryptGCM1(JNIEnv *env, jobject thiz, jbyteArray plaintext,
+                                                jbyteArray aad, jbyteArray key, jbyteArray iv) {
+    int plaintext_len = env->GetArrayLength( plaintext);
+    unsigned char *plaintext_bytes = reinterpret_cast<unsigned char *>(env->GetByteArrayElements(
+            plaintext, NULL));
+
+    int aad_len = env->GetArrayLength(aad);
+    unsigned char *aad_bytes = reinterpret_cast<unsigned char *>(env->GetByteArrayElements(aad,
+                                                                                           NULL));
+
+    unsigned char *key_bytes = reinterpret_cast<unsigned char *>(env->GetByteArrayElements(key,
+                                                                                           NULL));
+    unsigned char *iv_bytes = reinterpret_cast<unsigned char *>(env->GetByteArrayElements(iv,
+                                                                                          NULL));
+    int iv_len = env->GetArrayLength(iv);
+
+    // Prepare output arrays
+    unsigned char ciphertext[plaintext_len + EVP_MAX_BLOCK_LENGTH];
+    unsigned char tag[16];
+
+    int ciphertext_len = gcm_encrypt(plaintext_bytes, plaintext_len, aad_bytes, aad_len, key_bytes, iv_bytes, iv_len, ciphertext, tag);
+
+    // Combine ciphertext and tag into one array
+    jbyteArray output = env->NewByteArray( ciphertext_len + 16);
+    env->SetByteArrayRegion(output, 0, ciphertext_len, (jbyte *)ciphertext);
+    env->SetByteArrayRegion(output, ciphertext_len, 16, (jbyte *)tag);
+
+    // Release resources
+    env->ReleaseByteArrayElements(plaintext, (jbyte *)plaintext_bytes, 0);
+    env->ReleaseByteArrayElements(aad, (jbyte *)aad_bytes, 0);
+    env->ReleaseByteArrayElements(key, (jbyte *)key_bytes, 0);
+    env->ReleaseByteArrayElements(iv, (jbyte *)iv_bytes, 0);
+
+    return output;
+}
+extern "C"
+JNIEXPORT jbyteArray JNICALL
+Java_com_example_doan_crypto_Crypto_decryptGCM1(JNIEnv *env, jobject thiz, jbyteArray ciphertext,
+                                                jbyteArray aad, jbyteArray key, jbyteArray iv) {
+    int ciphertext_len = (env)->GetArrayLength( ciphertext) - 16;
+    unsigned char *ciphertext_bytes = reinterpret_cast<unsigned char *>((env)->GetByteArrayElements(
+            ciphertext, NULL));
+
+    int aad_len = (env)->GetArrayLength( aad);
+    unsigned char *aad_bytes = reinterpret_cast<unsigned char *>((env)->GetByteArrayElements(aad,
+                                                                                             NULL));
+
+    unsigned char *key_bytes = reinterpret_cast<unsigned char *>((env)->GetByteArrayElements(key,
+                                                                                             NULL));
+    unsigned char *iv_bytes = reinterpret_cast<unsigned char *>((env)->GetByteArrayElements(iv,
+                                                                                            NULL));
+    int iv_len = (env)->GetArrayLength(iv);
+
+    unsigned char *tag = ciphertext_bytes + ciphertext_len;
+
+    // Prepare output array
+    unsigned char plaintext[ciphertext_len];
+
+    int plaintext_len = gcm_decrypt(ciphertext_bytes, ciphertext_len, aad_bytes, aad_len, tag, key_bytes, iv_bytes, iv_len, plaintext);
+
+    // Release resources
+    (env)->ReleaseByteArrayElements(ciphertext, (jbyte *)ciphertext_bytes, 0);
+    (env)->ReleaseByteArrayElements(aad, (jbyte *)aad_bytes, 0);
+    (env)->ReleaseByteArrayElements(key, (jbyte *)key_bytes, 0);
+    (env)->ReleaseByteArrayElements(iv, (jbyte *)iv_bytes, 0);
+
+    if (plaintext_len < 0)
+    {
+        // Decryption failed
+        return NULL;
+    }
+
+    jbyteArray output = (env)->NewByteArray(plaintext_len);
+    (env)->SetByteArrayRegion(output, 0, plaintext_len, (jbyte *)plaintext);
+
+    return output;
 }

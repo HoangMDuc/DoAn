@@ -23,6 +23,9 @@
         <action
             android:id="@+id/action_home_fragment_to_lockedFileListFragment"
             app:destination="@id/lockedFileListFragment" />
+        <action
+            android:id="@+id/action_home_fragment_to_settingsFragment"
+            app:destination="@id/settingsFragment" />
     </fragment>
     <fragment
         android:id="@+id/login_fragment"
@@ -83,5 +86,32 @@
             android:name="folderId"
             app:argType="string" />
     </fragment>
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.example.doan.ui.fragment.SettingsFragment"
+        android:label="Settings"
+        tools:layout="@layout/fragment_settings" >
+        <action
+            android:id="@+id/action_settingsFragment_to_changeEmailFragment"
+            app:destination="@id/changeEmailFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_changePasswordFragment"
+            app:destination="@id/changePasswordFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_changeMasterPasswordFragment"
+            app:destination="@id/changeMasterPasswordFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/changeEmailFragment"
+        android:name="com.example.doan.ui.fragment.ChangeEmailFragment"
+        android:label="Change email" />
+    <fragment
+        android:id="@+id/changePasswordFragment"
+        android:name="com.example.doan.ui.fragment.ChangePasswordFragment"
+        android:label="Change Password" />
+    <fragment
+        android:id="@+id/changeMasterPasswordFragment"
+        android:name="com.example.doan.ui.fragment.ChangeMasterPasswordFragment"
+        android:label="Change Master Password" />
 
 </navigation>

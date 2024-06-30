@@ -1,7 +1,6 @@
 package com.example.doan.repository
 
 import android.app.Application
-import android.util.Log
 import androidx.core.content.ContextCompat
 import java.io.File
 import java.nio.file.Files
@@ -16,8 +15,6 @@ class KeysRepository(val application: Application) {
 
 
     init {
-
-
 
         val f = File(path)
 
@@ -38,24 +35,16 @@ class KeysRepository(val application: Application) {
 
     }
 
-    fun getKey(alias: String) : String {
+    fun getKey(alias: String) : String? {
         val key = keyStore.getKey(alias, null)
-        val aliases = keyStore.aliases()
-        while (aliases.hasMoreElements()) {
-            val ali = aliases.nextElement()
-            Log.d("A", "Alias: $ali")
+
+        return if(keyStore.containsAlias(alias)) {
+            String(key.encoded, Charsets.UTF_8)
+        }else {
+            null
         }
-        return String(key.encoded, Charsets.UTF_8)
     }
 
-    fun getAllKeys() {
-        val keys = keyStore.aliases()
-        Log.d("keys: ", "Show")
-        while(keys.hasMoreElements()) {
-            val key = keys.nextElement()
-            Log.d("keys: ",key)
-        }
-    }
 
     fun genCryptoKey() : String{
         val binaryKey = genKey()

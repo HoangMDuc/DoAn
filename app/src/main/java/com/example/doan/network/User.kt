@@ -1,11 +1,13 @@
 package com.example.doan.network
 
-import android.util.Log
 import com.google.android.gms.tasks.Task
 import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.auth
+import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.FirebaseDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class User(
     val id: String,
@@ -15,42 +17,71 @@ data class User(
     val createdAt: String,
     val updatedAt: String
 ) {
+
 }
 
 
 class UserApiService {
-    private val auth: FirebaseAuth = Firebase.auth
 
+    val auth = Firebase.auth
 
-    private fun createUserWithEmailAndPassword(user: User): Boolean {
-        auth.createUserWithEmailAndPassword(user.email, user.masterPassword)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    // Sign in success, update UI with the signed-in user's information
-                    Log.d("USER API", "createUserWithEmail:success")
-
-
-                } else {
-                    // If sign in fails, display a message to the user.
-                    Log.w("USER API", "createUserWithEmail:failure", task.exception)
-
-                }
-            }
-
-        return true
+    suspend fun signIn(email: String, password: String): Task<AuthResult> {
+        return withContext(Dispatchers.IO) {
+            val task = auth.signInWithEmailAndPassword(email, password)
+            task
+        }
+    }
+    suspend fun createUserWithEmailPassword(email: String, password: String): Task<AuthResult> {
+        return withContext(Dispatchers.IO) {
+            val task = auth.createUserWithEmailAndPassword(email, password)
+            task
+        }
+    }
+    suspend fun createUser(user: User): Task<Void> {
+        return withContext(Dispatchers.IO) {
+            val database = FirebaseDatabase.getInstance().getReference("users")
+            val task = database.child(user.id).setValue(user)
+            task
+        }
     }
 
-     suspend fun createUser(user: User): Task<Void> {
-       // var result = false
-        val database = FirebaseDatabase.getInstance().getReference("users")
+    suspend fun updateUserEmail(userId: String, email: String) : Task<Void>{
+        return withContext(Dispatchers.IO) {
+            val database = FirebaseDatabase.getInstance().getReference("users")
+            val task = database.child(userId).child("email").setValue(email)
+            task
+        }
 
-        val task = database.child(user.id).setValue(user)
-//            .addOnSuccessListener {
-//                Log.d("USER API", "createUserInformation:success")
-//                result = true
-//            }
-//         Log.d("USER API", "will return $result")
-        return task
+    }
+
+    suspend fun getUser(userId: String): Task<DataSnapshot> {
+        return withContext(Dispatchers.IO) {
+            val database = FirebaseDatabase.getInstance().getReference("users")
+            val task = database.child(userId).get()
+            task
+        }
+    }
+
+    suspend fun updatePassword(userID: String, password: String) : Task<Void>{
+        return withContext(Dispatchers.IO) {
+            val database = FirebaseDatabase.getInstance().getReference("users")
+            val task = database.child(userID).child("password").setValue(password)
+            task
+        }
+    }
+    suspend fun updateMasterPassword(userID: String, masterPassword: String) : Task<Void>{
+        return withContext(Dispatchers.IO) {
+            val database = FirebaseDatabase.getInstance().getReference("users")
+            val task = database.child(userID).child("masterPassword").setValue(masterPassword)
+            task
+        }
+    }
+
+    suspend fun forgotPassword(email: String) : Task<Void> {
+        return withContext(Dispatchers.IO) {
+            auth.sendPasswordResetEmail(email)
+
+        }
     }
 }
 

@@ -15,7 +15,9 @@ import com.example.doan.R
 import com.example.doan.database.AppDatabase
 import com.example.doan.database.entity.FolderEntity
 import com.example.doan.databinding.FragmentHomeBinding
+import com.example.doan.network.UserApiService
 import com.example.doan.repository.FolderRepository
+import com.example.doan.repository.KeysRepository
 import com.example.doan.ui.dialog.AddNewDialogFragment
 import com.example.doan.utils.AUDIO_MEDIA
 import com.example.doan.utils.DOCUMENT
@@ -31,7 +33,11 @@ class HomeFragment : Fragment() {
 
     private lateinit var binding: FragmentHomeBinding
     private val viewModel: UserViewModel by activityViewModels {
-        UserViewModel.UserViewModelFactory(activity?.application as Application)
+        UserViewModel.UserViewModelFactory(
+            activity?.application as Application,
+            KeysRepository(requireActivity().application),
+            UserApiService()
+        )
     }
     private val folderViewModel: FolderViewModel by activityViewModels {
         FolderViewModel.FolderFactory(
@@ -78,15 +84,15 @@ class HomeFragment : Fragment() {
 
         }
 
-//        viewModel.isLogin.observe(viewLifecycleOwner){
-//            if(!it) {
-//                findNavController().navigate(R.id.login_fragment)
-//            }else {
-//                val keyStore = KeysRepository(requireActivity().application)
-//                Log.d("Activity", keyStore.getKey("password"))
-//
-//            }
-//        }
+        viewModel.isLogin.observe(viewLifecycleOwner){
+            if(!it) {
+                findNavController().navigate(R.id.login_fragment)
+            }else {
+                val keyStore = KeysRepository(requireActivity().application)
+                keyStore.getKey("password")?.let { it1 -> Log.d("Activity", it1) }
+
+            }
+        }
         folderViewModel.rootFolders.observe(viewLifecycleOwner) { folders ->
             Log.d("Folder", "${folders.size}")
             if (folders.isEmpty()) {
@@ -126,7 +132,8 @@ class HomeFragment : Fragment() {
 
     private fun handleFolderClick(type: String, folder: String) {
 
-        val action = HomeFragmentDirections.actionHomeFragmentToLockedFileListFragment(type, folder, folder)
+        val action =
+            HomeFragmentDirections.actionHomeFragmentToLockedFileListFragment(type, folder, folder)
         findNavController().navigate(action)
     }
 

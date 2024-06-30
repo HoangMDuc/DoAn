@@ -25,7 +25,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
+    packagingOptions {
+        exclude ("META-INF/NOTICE.md")
+        exclude ("META-INF/LICENSE.md")
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -104,6 +107,10 @@ dependencies {
     // OpenSSL
     implementation ("com.android.ndk.thirdparty:openssl:1.1.1l-beta-1")
     implementation ("com.android.ndk.thirdparty:curl:7.79.1-beta-1")
-
+    // loading image lib
     implementation ("com.github.bumptech.glide:glide:4.16.0")
+
+    // send email lib
+    implementation ("com.sun.mail:android-mail:1.6.6")
+    implementation ("com.sun.mail:android-activation:1.6.7")
 }

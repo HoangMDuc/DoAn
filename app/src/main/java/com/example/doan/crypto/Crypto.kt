@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.Base64
 import java.util.UUID
 import kotlin.random.Random
 
@@ -132,15 +133,14 @@ class Crypto(
             originFile
         }
     }
-    fun encrypt(input: String, key: String, iv: String): String {
+    fun encrypt(input: ByteArray,add: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
 
-        val result = encryptGCM(input, input.length, key, key.length, iv, iv.length)
+        val result = encryptGCM1(input, add,  key, iv)
         return result
     }
 
-    fun decrypt(ciphertext: String, key: String, iv: String): String {
-
-        return decryptGCM(ciphertext, key, iv)
+    fun decrypt(ciphertext: ByteArray,add: ByteArray, key: ByteArray, iv: ByteArray): ByteArray? {
+        return decryptGCM1(ciphertext,add, key, iv)
     }
 
     companion object {
@@ -159,10 +159,28 @@ class Crypto(
         iv: String,
         ivSize: Int
     ): String
+    suspend fun test_d() {
+        withContext(Dispatchers.IO) {
+            val plaintext = "This is a very long string that needs to be encrypted using GCM mode in native code.".toByteArray()
+            val aad = "Additional data".toByteArray()
+            val key = ByteArray(32) { 0 } // Use a proper key in a real application
+            val iv = ByteArray(12) { 0 } // Use a proper IV in a real application
 
+            val ciphertext = encryptGCM1(plaintext, aad, key, iv)
+            Log.d("Crypto","Ciphertext: ${Base64.getEncoder().encodeToString(ciphertext)}")
+
+            val decryptedText = decryptGCM1(ciphertext, aad, key, iv)
+            if (decryptedText != null) {
+                Log.d("Crypto","Decrypted text: ${String(decryptedText)}")
+            } else {
+                Log.d("Crypto","Decryption failed")
+            }
+        }
+    }
     private external fun decryptGCM(ciphertext: String, key: String, iv: String): String
 
     //private external fun loadEncrypt(s: ByteArray): ByteArray
-
+    private external fun encryptGCM1(plaintext: ByteArray, aad: ByteArray, key: ByteArray, iv: ByteArray): ByteArray
+    private external fun decryptGCM1(ciphertext: ByteArray, aad: ByteArray, key: ByteArray, iv: ByteArray): ByteArray?
 
 }

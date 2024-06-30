@@ -12,8 +12,10 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.example.doan.R
 import com.example.doan.databinding.FragmentRegisterBinding
+import com.example.doan.network.UserApiService
+import com.example.doan.repository.KeysRepository
 import com.example.doan.ui.dialog.LoadingDialog
-import com.example.doan.viewmodel.REGISTER_STATUS
+import com.example.doan.utils.STATUS
 import com.example.doan.viewmodel.UserViewModel
 import com.google.android.material.textfield.TextInputLayout
 
@@ -22,9 +24,12 @@ class RegisterFragment : Fragment() {
     private lateinit var binding: FragmentRegisterBinding
 
     private val viewModel: UserViewModel by activityViewModels {
-        UserViewModel.UserViewModelFactory(activity?.application as Application)
+        UserViewModel.UserViewModelFactory(
+            activity?.application as Application,
+            KeysRepository(requireActivity().application),
+            UserApiService()
+        )
     }
-
 
 
     override fun onCreateView(
@@ -44,18 +49,18 @@ class RegisterFragment : Fragment() {
         initView()
 
     }
+
     private fun initView() {
         val loadingDialog = LoadingDialog(requireActivity())
         viewModel.isLogin.observe(viewLifecycleOwner) {
-            if(it) {
+            if (it) {
                 findNavController().navigate(R.id.home_fragment)
             }
         }
         viewModel.status.observe(viewLifecycleOwner) {
-            if(it == REGISTER_STATUS.CREATING) {
-
+            if (it == STATUS.DOING) {
                 loadingDialog.show()
-            }else {
+            } else {
                 loadingDialog.close()
             }
         }
@@ -68,7 +73,7 @@ class RegisterFragment : Fragment() {
                 val masterPassword = masterPwInput.text.toString()
                 val confirmPassword = masterPwInput2.text.toString()
                 val isValidPw = viewModel.validatePassword(masterPassword)
-                if(!isValidPw) {
+                if (!isValidPw) {
                     showErrorMessage("Invalid password", masterPwInputLayout)
                     masterPwInput.requestFocus()
                     return@setOnClickListener
@@ -77,7 +82,7 @@ class RegisterFragment : Fragment() {
                     masterPassword,
                     confirmPassword
                 )
-                if(!isCorrectConfirmPw) {
+                if (!isCorrectConfirmPw) {
                     showErrorMessage(
                         "Confirm password must be same with master password",
                         masterPwInputLayout2
@@ -127,6 +132,7 @@ class RegisterFragment : Fragment() {
             }
         }
     }
+
     private fun handleClickNextBtn() {
         binding.viewFlipper.showNext()
 

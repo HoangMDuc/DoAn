@@ -15,4 +15,6 @@
     <color name="red_700">#FFD32F2F</color>
     <color name="red_400">#FFEF5350</color>
     <color name="selected_item_background">#F1EAEA</color>
+    <color name="snackbar_success_background">#4CAF50</color>
+    <color name="snackbar_fail_background">#F44336</color>
 </resources>

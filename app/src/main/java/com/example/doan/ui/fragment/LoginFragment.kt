@@ -1,43 +1,50 @@
 package com.example.doan.ui.fragment
 
 import android.app.Application
-import android.content.Context.MODE_PRIVATE
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import androidx.core.widget.doOnTextChanged
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.example.doan.R
 import com.example.doan.databinding.FragmentLoginBinding
+import com.example.doan.network.UserApiService
+import com.example.doan.repository.KeysRepository
+import com.example.doan.ui.dialog.AuthenticateDialog
+import com.example.doan.ui.dialog.LoadingDialog
+import com.example.doan.utils.STATUS
+import com.example.doan.utils.isNetworkAvailable
+import com.example.doan.utils.showErrorSnackBar
+import com.example.doan.utils.showSuccessSnackBar
 import com.example.doan.viewmodel.UserViewModel
 import com.google.android.material.textfield.TextInputLayout
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
 
-/**
- * A simple [Fragment] subclass.
- * Use the [Login.newInstance] factory method to
- * create an instance of this fragment.
- */
 class LoginFragment : Fragment() {
 
     private lateinit var binding: FragmentLoginBinding
 
-
-    private val viewModel: UserViewModel by activityViewModels{
-        UserViewModel.UserViewModelFactory(activity?.application as Application)
+    private val authenticateDialog: AuthenticateDialog by lazy {
+        AuthenticateDialog(getListener())
     }
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
 
+    private val loadingDialog: LoadingDialog by lazy {
+        LoadingDialog(requireActivity())
     }
+    private val viewModel: UserViewModel by activityViewModels {
+        UserViewModel.UserViewModelFactory(
+            activity?.application as Application,
+            KeysRepository(requireActivity().application),
+            UserApiService()
+        )
+    }
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -65,29 +72,60 @@ class LoginFragment : Fragment() {
                 findNavController().navigate(R.id.home_fragment)
             }
         }
-        if(viewModel.isFirstTimeAccess()) {
+        Log.d("LoginFragment", "onViewCreated: ${viewModel.isFirstTimeAccess()}")
+        if (viewModel.isFirstTimeAccess()) {
             findNavController().navigate(R.id.register_fragment)
         }
-
+        binding.forgotPassword.setOnClickListener {
+            if(isNetworkAvailable(requireActivity())) {
+                authenticateDialog.show(requireActivity().supportFragmentManager, "AuthenticateDialog")
+            }else {
+                showErrorSnackBar(requireView(), requireContext(), "No Internet Connection")
+            }
+        }
+        viewModel.status.observe(viewLifecycleOwner) {
+            if (it == STATUS.DOING) {
+                loadingDialog.show()
+            } else {
+                loadingDialog.close()
+            }
+        }
+        binding.secondaryPwInput.doOnTextChanged {
+            _, _, _, _ ->
+            hideErrorMessage(binding.secondaryPwInputLayout)
+        }
+        viewModel.isCorrectPassword.observe(viewLifecycleOwner) {
+            if (it) {
+                authenticateDialog.dismiss()
+                showSuccessSnackBar(requireView(), requireContext(), "Reset password will be sent to your recovery email")
+                handleForgotPassword()
+            } else {
+                authenticateDialog.setError("Incorrect Master Password")
+            }
+        }
+        binding.appLogo.setOnClickListener {
+            viewModel.test()
+        }
     }
+
+    private fun handleForgotPassword() {
+        viewModel.forgotPassword()
+    }
+
     private fun handleClick() {
         Log.d("LoginFragment", "handleClick: ${viewModel.password.value}")
         val password = binding.secondaryPwInput.text.toString()
-        if(viewModel.validatePassword(password)) {
+        if (viewModel.validatePassword(password)) {
             viewModel.setPassword(password)
-
-            val sharedPreferences = activity?.getSharedPreferences(UserViewModel.PREFERENCES_NAME, MODE_PRIVATE)
-            val user_pw = sharedPreferences?.getString("user_password" , "")
-            if(user_pw == password) {
-                viewModel.setLogin(true)
-            }else {
+            viewModel.login(password)
+            if (viewModel.isLogin.value == false) {
                 showErrorMessage("Incorrect Password", binding.secondaryPwInputLayout)
             }
-
-        }else {
+        } else {
             showErrorMessage("Invalid Password!", binding.secondaryPwInputLayout)
         }
     }
+
     private fun showErrorMessage(errorMessage: String, inputLayout: TextInputLayout) {
         inputLayout.error = errorMessage
         inputLayout.isErrorEnabled = true
@@ -98,5 +136,26 @@ class LoginFragment : Fragment() {
         inputLayout.isErrorEnabled = false
     }
 
+    private fun getListener(): AuthenticateDialog.AuthenticateDialogListener {
+        return object : AuthenticateDialog.AuthenticateDialogListener {
+            override fun onSubmit(password: String, input: EditText) {
+
+                if (password.isNotEmpty()) {
+
+//                    if(userViewModel.validateEmail(email)) {
+//                        userViewModel.updateEmail(email)
+//                    }else {
+//                        input.error = "Invalid email"
+//                    }
+                    viewModel.isCorrectMasterPassword(password)
+                }
+
+            }
+
+            override fun onCancel(dialog: AuthenticateDialog) {
+                dialog.dismiss()
+            }
+        }
+    }
 
 }
