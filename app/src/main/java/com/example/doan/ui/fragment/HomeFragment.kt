@@ -2,7 +2,6 @@ package com.example.doan.ui.fragment
 
 import android.app.Application
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -87,16 +86,10 @@ class HomeFragment : Fragment() {
         viewModel.isLogin.observe(viewLifecycleOwner){
             if(!it) {
                 findNavController().navigate(R.id.login_fragment)
-            }else {
-                val keyStore = KeysRepository(requireActivity().application)
-                keyStore.getKey("password")?.let { it1 -> Log.d("Activity", it1) }
-
             }
         }
         folderViewModel.rootFolders.observe(viewLifecycleOwner) { folders ->
-            Log.d("Folder", "${folders.size}")
             if (folders.isEmpty()) {
-                Log.d("Folder", "Empty")
                 val pictureFolder = FolderEntity(
                     IMAGE_MEDIA, IMAGE_MEDIA, null, 0,
                     null, "image_4942906"

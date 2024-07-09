@@ -10,11 +10,11 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.doan.crypto.Crypto
 import com.example.doan.network.User
 import com.example.doan.network.UserApiService
 import com.example.doan.repository.KeysRepository
 import com.example.doan.utils.EMAIL_REGEX
+import com.example.doan.utils.PASSWORD_ALIAS
 import com.example.doan.utils.PASSWORD_REGEX
 import com.example.doan.utils.STATUS
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +52,9 @@ class UserViewModel(
     private val _status = MutableLiveData<STATUS>()
     val status: LiveData<STATUS> get() = _status
 
+    private val _forgotPasswordStatus = MutableLiveData<STATUS>()
+    val forgotPasswordStatus: LiveData<STATUS> get() = _forgotPasswordStatus
+
     val isLogin: LiveData<Boolean> get() = _isLogin
     private val _password = MutableLiveData<String>()
     val password: LiveData<String> get() = _password
@@ -67,8 +70,11 @@ class UserViewModel(
 
 
     fun isFirstTimeAccess(): Boolean {
-        val result = keysRepository.getKey(IS_FIRST_TIME_ACCESS)
-        return result?.toBoolean() ?: true
+        return if(keysRepository.hasKey(IS_FIRST_TIME_ACCESS)) {
+            keysRepository.getKey(IS_FIRST_TIME_ACCESS).toBoolean()
+        }else {
+            true
+        }
     }
 
     fun validatePassword(password: String): Boolean {
@@ -101,7 +107,7 @@ class UserViewModel(
     }
 
     fun forgotPassword() {
-        _status.value = STATUS.DOING
+        _forgotPasswordStatus.value = STATUS.DOING
         viewModelScope.launch {
             val response = databaseRef.getUser(deviceID).await()
             val userEmail = response.child("email").value.toString()
@@ -135,11 +141,11 @@ class UserViewModel(
                     Transport.send(message)
                     Log.d("Send email", "Email sent successfully.")
                     withContext(Dispatchers.Main) {
-                        _status.value = STATUS.DONE
+                        _forgotPasswordStatus.value = STATUS.DONE
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        _status.value = STATUS.FAIL
+                        _forgotPasswordStatus.value = STATUS.FAIL
                     }
                     Log.e("Send email", "Error sending email", e)
                 }
@@ -148,12 +154,6 @@ class UserViewModel(
         }
     }
 
-
-    fun test() {
-        viewModelScope.launch {
-            Crypto(application.applicationContext).test_d()
-        }
-    }
 
     fun register() {
         _status.value = STATUS.DOING
@@ -173,12 +173,8 @@ class UserViewModel(
                 val response = databaseRef.createUser(user)
                 response.await()
                 Log.d("ViewModel", "success")
-                keysRepository.storeMKey("password", user.password)
-                keysRepository.storeMKey("isFirstTimeAccess", "false")
-                val cryptoKey = keysRepository.genCryptoKey()
-                keysRepository.storeMKey("cryptoKey", cryptoKey)
-                val iv = keysRepository.genCryptoIV()
-                keysRepository.storeMKey("iv", iv)
+                keysRepository.storeMKey(PASSWORD_ALIAS, user.password)
+                keysRepository.storeMKey(IS_FIRST_TIME_ACCESS, "false")
                 _isLogin.value = true
                 _status.value = STATUS.DONE
 
@@ -231,8 +227,8 @@ class UserViewModel(
         }
     }
 
-    fun getCurrentPassword(): String? {
-        return keysRepository.getKey("password")
+    fun getCurrentPassword(): String {
+        return keysRepository.getKey(PASSWORD_ALIAS)
     }
 
     fun updatePassword(password: String) {
@@ -241,7 +237,7 @@ class UserViewModel(
             try {
                 val response = databaseRef.updatePassword(deviceID, password)
                 response.addOnSuccessListener {
-                    keysRepository.storeMKey("password", password)
+                    keysRepository.storeMKey(PASSWORD_ALIAS, password)
                     _status.value = STATUS.DONE
                 }.addOnFailureListener {
                     _status.value = STATUS.FAIL
@@ -270,7 +266,6 @@ class UserViewModel(
         viewModelScope.launch {
             val response = databaseRef.updateMasterPassword(deviceID, password)
             response.addOnSuccessListener {
-                keysRepository.storeMKey("password", password)
                 _status.value = STATUS.DONE
             }.addOnFailureListener {
                 _status.value = STATUS.FAIL
@@ -318,7 +313,7 @@ class UserViewModel(
     }
 
     fun login(password: String) {
-        val pw = keysRepository.getKey("password")
+        val pw = keysRepository.getKey(PASSWORD_ALIAS)
         _isLogin.value = password == pw
     }
 

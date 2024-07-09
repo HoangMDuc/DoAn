@@ -1,7 +1,6 @@
 package com.example.doan.adapter
 
 import android.content.Context
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,12 +17,10 @@ import com.example.doan.utils.IMAGE_MEDIA
 import com.example.doan.utils.VIDEO_MEDIA
 import com.example.doan.utils.getFileInfo
 import com.example.doan.utils.stringToBitmap
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class LockerFileAdapter(
     private val context: Context,
@@ -54,16 +51,12 @@ class LockerFileAdapter(
 
     override fun onBindViewHolder(holder: FileViewHolder, position: Int) {
         val file = files[position]
-        val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
-        Log.d("file adapter", formatter.format(Date()))
+        //val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
         holder.fileInfo.text = getFileInfo(file)
         holder.fileName.text = file.name
-        Log.d("file adapter", file.size.toString())
         coroutineScope.launch {
-            val encryptInformation = keysRepository.getKey(file.name)
-            encryptInformation?.let {
-                Log.d("EN", encryptInformation)
-
+            if(keysRepository.hasKey(file.name)) {
+                val encryptInformation = keysRepository.getKey(file.name)
                 when (fileType) {
                     IMAGE_MEDIA -> {
                         Glide.with(holder.fileImage)
@@ -72,7 +65,6 @@ class LockerFileAdapter(
                             .error(R.drawable.file)
                             .into(holder.fileImage)
 
-                        Log.d("file adapter", formatter.format(Date()))
                     }
 
                     VIDEO_MEDIA -> {
@@ -82,7 +74,6 @@ class LockerFileAdapter(
                             .error(R.drawable.file)
                             .into(holder.fileImage)
 
-                        Log.d("file adapter", formatter.format(Date()))
 
                     }
 
@@ -110,7 +101,9 @@ class LockerFileAdapter(
                     true
                 }
             }
-
+            else {
+                Snackbar.make(holder.view, "Something went wrong", Snackbar.LENGTH_SHORT).show()
+            }
 
         }
     }

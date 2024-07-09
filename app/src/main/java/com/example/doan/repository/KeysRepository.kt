@@ -35,27 +35,35 @@ class KeysRepository(val application: Application) {
 
     }
 
-    fun getKey(alias: String) : String? {
+    fun getKey(alias: String) : String {
         val key = keyStore.getKey(alias, null)
+        return String(key.encoded, Charsets.UTF_8)
+    }
 
-        return if(keyStore.containsAlias(alias)) {
-            String(key.encoded, Charsets.UTF_8)
-        }else {
-            null
+    fun deleteKey(alias: String) {
+        if(keyStore.containsAlias(alias)) {
+            keyStore.deleteEntry(alias)
         }
+    }
+
+    fun hasKey(alias: String) : Boolean {
+        return keyStore.containsAlias(alias)
     }
 
 
     fun genCryptoKey() : String{
         val binaryKey = genKey()
         val hexKey = convertBinaryStringToHexString(binaryKey)
-
         return hexKey
     }
 
 
     fun genCryptoIV() : String{
-        return "2390172847198247190"
+        return genIV()
+    }
+
+    fun genAddData() : String {
+        return genAdditionalData()
     }
 
 
@@ -68,9 +76,11 @@ class KeysRepository(val application: Application) {
     private external fun genKey() : String
     private external fun genIV() : String
 
+    private external fun genAdditionalData() : String
+
     public external fun test1(input : String)
 
-    fun convertBinaryStringToHexString(binaryString: String): String {
+    private fun convertBinaryStringToHexString(binaryString: String): String {
         val hexString = StringBuilder()
         var i = 0
         while (i < binaryString.length) {

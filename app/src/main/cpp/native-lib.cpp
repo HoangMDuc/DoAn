@@ -594,3 +594,19 @@ Java_com_example_doan_crypto_Crypto_decryptGCM1(JNIEnv *env, jobject thiz, jbyte
 
     return output;
 }
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_example_doan_repository_KeysRepository_genAdditionalData(JNIEnv *env, jobject thiz) {
+    unsigned char add[iv_length];
+
+    if( RAND_bytes(add, iv_length) != 1) {
+        return env->NewStringUTF("");
+    }
+
+    string iv_binary;
+    for (size_t i = 0; i < iv_length; i++) {
+        iv_binary += bitset<8>(add[i]).to_string();
+    }
+
+    return  env->NewStringUTF(iv_binary.c_str());
+}

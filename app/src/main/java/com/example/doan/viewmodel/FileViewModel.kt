@@ -22,8 +22,11 @@ import com.example.doan.database.entity.FolderEntity
 import com.example.doan.repository.FileRepository
 import com.example.doan.repository.FolderRepository
 import com.example.doan.repository.KeysRepository
+import com.example.doan.utils.ADD_ALIAS
 import com.example.doan.utils.AUDIO_MEDIA
 import com.example.doan.utils.IMAGE_MEDIA
+import com.example.doan.utils.IV_ALIAS
+import com.example.doan.utils.KEY_ALIAS
 import com.example.doan.utils.STATUS
 import com.example.doan.utils.VIDEO_MEDIA
 import com.example.doan.utils.bitmapToString
@@ -132,21 +135,24 @@ class FileViewModel(
                             file.bucketName
                         )
                         Log.d("FileVM", encryptInformation.length.toString())
-                        val cryptoKey = keysRepository.getKey("cryptoKey")
-                        val iv = keysRepository.getKey("iv")
-                        if(cryptoKey != null && iv != null) {
-                            val encryptedInfo = Crypto(application.applicationContext).encrypt(
-                                encryptInformation.toByteArray(),
-                                "add".toByteArray(),
-                                cryptoKey.toByteArray(),
-                                iv.toByteArray()
-                            )
-                            keysRepository.storeMKey(encryptFile.name, encodeByteArray(encryptedInfo))
-                        }else {
-                            keysRepository.storeMKey(encryptFile.name, encryptInformation)
-                        }
+                        val cryptoKey = keysRepository.genCryptoKey()
+                        val iv = keysRepository.genCryptoIV()
+                        val addData = keysRepository.genAddData()
 
-                        Log.d("FileViewModel", "Locked file: ${encryptFile.absolutePath}")
+                        val encryptedInfo = Crypto(application.applicationContext).encrypt(
+                            encryptInformation.toByteArray(),
+                            addData.toByteArray(),
+                            cryptoKey.toByteArray(),
+                            iv.toByteArray()
+                        )
+                        keysRepository.storeMKey(
+                            encryptFile.name,
+                            encodeByteArray(encryptedInfo)
+                        )
+                        keysRepository.storeMKey(KEY_ALIAS + encryptFile.name, cryptoKey)
+                        keysRepository.storeMKey(IV_ALIAS + encryptFile.name, iv)
+                        keysRepository.storeMKey(ADD_ALIAS + encryptFile.name, addData)
+
                         val currentFiles = _files.value?.toMutableList()
                         currentFiles?.remove(file)
                         _files.postValue(currentFiles!!)
@@ -162,7 +168,6 @@ class FileViewModel(
                             "folder"
                         )
                         folderRepository.insert(folder)
-                        Log.d("Insert folder", "done")
                         val f = when (file) {
                             is VideoProjection -> {
                                 FileEntity(
@@ -224,7 +229,9 @@ class FileViewModel(
                             }
                             Log.d("change folder", "done")
                         }
-                        // performDeleteMediaFile(file)
+                         performDeleteMediaFile(file)
+
+
                     } catch (e: Exception) {
                         _status.value = STATUS.FAIL
                         e.printStackTrace()

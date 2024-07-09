@@ -8,14 +8,48 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.util.Base64
 import java.util.UUID
 import kotlin.random.Random
 
 class Crypto(
     private val context: Context,
 ) {
-
+//    suspend fun encryptFile2(
+//        filePath: String,
+//        fileName: String,
+//        fileType: String,
+//        folderName: String,
+//        key: ByteArray,
+//        iv: ByteArray
+//    ) : File {
+//        return withContext(Dispatchers.IO) {
+//            val inputStream = FileInputStream(filePath)
+//            val uuid = UUID.randomUUID().toString()
+//            val destinationFolder = File(
+//                getLockedFileRootPath(context, fileType), folderName
+//            )
+//            if (!destinationFolder.exists()) {
+//                destinationFolder.mkdirs()
+//            }
+//            val destinationFile = File(
+//                destinationFolder.absolutePath,
+//                fileName.substringBeforeLast(".") + uuid + "." + fileName.substringAfterLast(".")
+//            )
+//            val outputStream = FileOutputStream(destinationFile.absolutePath)
+//            var length: Int
+//            val buffer = ByteArray(1024)
+//
+//            while (inputStream.read(buffer).also { length = it } > 0) {
+//                val encryptedData = encryptGCM1(buffer, "add".toByteArray(), key, iv)
+//                outputStream.write(buffer, 0, length)
+//
+//            }
+//            inputStream.close()
+//            outputStream.close()
+//
+//            destinationFile
+//        }
+//    }
     suspend fun encryptFile(
         filePath: String,
         fileName: String,
@@ -35,14 +69,14 @@ class Crypto(
             val inputStream = FileInputStream(filePath)
             val uuid = UUID.randomUUID().toString()
             val destinationFolder = File(
-                getLockedFileRootPath(context, fileType) , folderName
+                getLockedFileRootPath(context, fileType), folderName
             )
-            if(!destinationFolder.exists()) {
+            if (!destinationFolder.exists()) {
                 destinationFolder.mkdirs()
             }
             val destinationFile = File(
                 destinationFolder.absolutePath,
-                fileName.substringBeforeLast(".") + uuid + "." + fileName.substringAfterLast(".")
+                fileName.substringBeforeLast(".")+ "_" + uuid + "." + fileName.substringAfterLast(".")
             )
             val outputStream = FileOutputStream(destinationFile.absolutePath)
 
@@ -101,7 +135,13 @@ class Crypto(
             cacheFile
         }
     }
-    suspend fun decryptFileToOriginPath(filePath: String, fileName: String, originPath: String, encryptionInfo: String) : File {
+
+    suspend fun decryptFileToOriginPath(
+        filePath: String,
+        fileName: String,
+        originPath: String,
+        encryptionInfo: String
+    ): File {
         return withContext(Dispatchers.IO) {
             Log.d("encryptionInfo", encryptionInfo)
             val encryptionList = encryptionInfo.split(";")
@@ -133,14 +173,15 @@ class Crypto(
             originFile
         }
     }
-    fun encrypt(input: ByteArray,add: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
 
-        val result = encryptGCM1(input, add,  key, iv)
+    fun encrypt(input: ByteArray, add: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
+
+        val result = encryptGCM1(input, add, key, iv)
         return result
     }
 
-    fun decrypt(ciphertext: ByteArray,add: ByteArray, key: ByteArray, iv: ByteArray): ByteArray? {
-        return decryptGCM1(ciphertext,add, key, iv)
+    fun decrypt(ciphertext: ByteArray, add: ByteArray, key: ByteArray, iv: ByteArray): ByteArray? {
+        return decryptGCM1(ciphertext, add, key, iv)
     }
 
     companion object {
@@ -151,36 +192,19 @@ class Crypto(
         }
     }
 
-    private external fun encryptGCM(
-        plaintext: String,
-        plaintextLength: Int,
-        key: String,
-        keySize: Int,
-        iv: String,
-        ivSize: Int
-    ): String
-    suspend fun test_d() {
-        withContext(Dispatchers.IO) {
-            val plaintext = "This is a very long string that needs to be encrypted using GCM mode in native code.".toByteArray()
-            val aad = "Additional data".toByteArray()
-            val key = ByteArray(32) { 0 } // Use a proper key in a real application
-            val iv = ByteArray(12) { 0 } // Use a proper IV in a real application
 
-            val ciphertext = encryptGCM1(plaintext, aad, key, iv)
-            Log.d("Crypto","Ciphertext: ${Base64.getEncoder().encodeToString(ciphertext)}")
+    private external fun encryptGCM1(
+        plaintext: ByteArray,
+        aad: ByteArray,
+        key: ByteArray,
+        iv: ByteArray
+    ): ByteArray
 
-            val decryptedText = decryptGCM1(ciphertext, aad, key, iv)
-            if (decryptedText != null) {
-                Log.d("Crypto","Decrypted text: ${String(decryptedText)}")
-            } else {
-                Log.d("Crypto","Decryption failed")
-            }
-        }
-    }
-    private external fun decryptGCM(ciphertext: String, key: String, iv: String): String
-
-    //private external fun loadEncrypt(s: ByteArray): ByteArray
-    private external fun encryptGCM1(plaintext: ByteArray, aad: ByteArray, key: ByteArray, iv: ByteArray): ByteArray
-    private external fun decryptGCM1(ciphertext: ByteArray, aad: ByteArray, key: ByteArray, iv: ByteArray): ByteArray?
+    private external fun decryptGCM1(
+        ciphertext: ByteArray,
+        aad: ByteArray,
+        key: ByteArray,
+        iv: ByteArray
+    ): ByteArray?
 
 }

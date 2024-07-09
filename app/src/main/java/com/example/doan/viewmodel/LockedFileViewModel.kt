@@ -23,6 +23,9 @@ import com.example.doan.database.entity.FileEntity
 import com.example.doan.repository.FileRepository
 import com.example.doan.repository.FolderRepository
 import com.example.doan.repository.KeysRepository
+import com.example.doan.utils.ADD_ALIAS
+import com.example.doan.utils.IV_ALIAS
+import com.example.doan.utils.KEY_ALIAS
 import com.example.doan.utils.STATUS
 import com.example.doan.utils.decodeString
 import kotlinx.coroutines.launch
@@ -56,35 +59,58 @@ class LockedFileViewModel(
     fun handleClickLockedFile(filePath: String, fileName: String, encryptionInfo: String) {
         viewModelScope.launch {
             _status.value = STATUS.DOING
-            val cacheFile = Crypto(application.applicationContext).decryptFile(
-                filePath,
-                fileName,
-                encryptionInfo
-            )
-            val intent = Intent(Intent.ACTION_VIEW)
-            val extension = MimeTypeMap.getFileExtensionFromUrl(cacheFile.toURI().toString())
-            val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
-            Log.d("Adapter", extension)
-            mimeType?.toString()?.let { Log.d("Adapter", it) }
-            val uri = FileProvider.getUriForFile(
-                application.applicationContext,
-                "${application.applicationContext.packageName}.provider",
-                cacheFile
-            )
+            if (keysRepository.hasKey(KEY_ALIAS + fileName) && keysRepository.hasKey(IV_ALIAS + fileName) && keysRepository.hasKey(
+                    ADD_ALIAS + fileName
+                )
+            ) {
+                Log.d("LockedFileViewModel", "Decrypting")
+                val key = keysRepository.getKey(KEY_ALIAS + fileName)
+                val iv = keysRepository.getKey(IV_ALIAS + fileName)
+                val addData = keysRepository.getKey(ADD_ALIAS + fileName)
+                val plainInfo = Crypto(application.applicationContext).decrypt(
+                    decodeString(encryptionInfo),
+                    addData.toByteArray(),
+                    key.toByteArray(),
+                    iv.toByteArray()
+                )
 
-            _status.value = STATUS.DONE
-            intent.setDataAndTypeAndNormalize(uri, mimeType)
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (plainInfo != null) {
+                    val cacheFile = Crypto(application.applicationContext).decryptFile(
+                        filePath,
+                        fileName,
+                        String(plainInfo)
+                    )
+                    val intent = Intent(Intent.ACTION_VIEW)
+                    val extension =
+                        MimeTypeMap.getFileExtensionFromUrl(cacheFile.toURI().toString())
+                    val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+                    Log.d("Adapter", extension)
+                    mimeType?.toString()?.let { Log.d("Adapter", it) }
+                    val uri = FileProvider.getUriForFile(
+                        application.applicationContext,
+                        "${application.applicationContext.packageName}.provider",
+                        cacheFile
+                    )
 
-            try {
-                application.applicationContext.startActivity(intent)
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(
-                    application.applicationContext,
-                    "No application found to open this file type. Please download it first",
-                    Toast.LENGTH_LONG
-                ).show()
+                    _status.value = STATUS.DONE
+                    intent.setDataAndTypeAndNormalize(uri, mimeType)
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+                    try {
+                        application.applicationContext.startActivity(intent)
+                    } catch (e: ActivityNotFoundException) {
+                        Toast.makeText(
+                            application.applicationContext,
+                            "No application found to open this file type. Please download it first",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } else {
+                    _status.value = STATUS.FAIL
+                }
+            } else {
+                _status.value = STATUS.FAIL
             }
 
 
@@ -130,7 +156,6 @@ class LockedFileViewModel(
     fun unlockFile() {
         _status.value = STATUS.DOING
         val files = selectedFile.value
-
         files?.let {
             viewModelScope.launch {
                 for (file in files) {
@@ -140,87 +165,73 @@ class LockedFileViewModel(
                         if (encryptedFile.exists()) {
                             Log.d("LFViewModel", "Exits")
                             Log.d("LFViewModel", "Exits")
-                            val encryptionInfo = keysRepository.getKey(encryptedFile.name)
-                            val cryptoKey = keysRepository.getKey("cryptoKey")
-                            val iv = keysRepository.getKey("iv")
-                            encryptionInfo?.let {
-                                Log.d("LFViewModel", "Co encryptInfo")
-                                val originFile =
-                                    if (cryptoKey != null && iv != null) {
-                                        Log.d("LFViewModel", "Co CryptoKey va IV")
-                                        val plainEncryptInfo =
-                                            Crypto(application.applicationContext)
-                                                .decrypt(
-                                                    decodeString(encryptionInfo),
-                                                    "add".toByteArray(),
-                                                    cryptoKey.toByteArray(),
-                                                    iv.toByteArray()
-                                                )
-                                        if (plainEncryptInfo != null) {
-                                            Log.d("LFViewModel", "Decrypt OK")
-                                            Log.d("LFViewModel", String(plainEncryptInfo))
-                                            Crypto(application.applicationContext).decryptFileToOriginPath(
-                                                encryptedFile.absolutePath,
-                                                encryptedFile.name,
-                                                file.originPath,
-                                                String(plainEncryptInfo)
-                                            )
-                                        } else {
-                                            Log.d("LFViewModel", "Decrypt Fail")
-                                            Crypto(application.applicationContext).decryptFileToOriginPath(
-                                                encryptedFile.absolutePath,
-                                                encryptedFile.name,
-                                                file.originPath,
-                                                encryptionInfo
-                                            )
-                                        }
-                                    } else {
-                                        Log.d("LFViewModel", "Khong Co encryptInfo")
+                            if (keysRepository.hasKey(file.name) && keysRepository.hasKey(KEY_ALIAS + file.name)
+                                && keysRepository.hasKey(IV_ALIAS + file.name) && keysRepository.hasKey(
+                                    ADD_ALIAS + file.name
+                                )
+                            ) {
+                                val encryptionInfo = keysRepository.getKey(encryptedFile.name)
+                                val cryptoKey = keysRepository.getKey(KEY_ALIAS + file.name)
+                                val iv = keysRepository.getKey(IV_ALIAS + file.name)
+                                val addData = keysRepository.getKey(ADD_ALIAS + file.name)
+                                val plainEncryptInfo =
+                                    Crypto(application.applicationContext)
+                                        .decrypt(
+                                            decodeString(encryptionInfo),
+                                            addData.toByteArray(),
+                                            cryptoKey.toByteArray(),
+                                            iv.toByteArray()
+                                        )
+                                if (plainEncryptInfo != null) {
+                                    Log.d("LFViewModel", "Decrypt OK")
+                                    Log.d("LFViewModel", String(plainEncryptInfo))
+                                    val originFile =
                                         Crypto(application.applicationContext).decryptFileToOriginPath(
                                             encryptedFile.absolutePath,
                                             encryptedFile.name,
                                             file.originPath,
-                                            encryptionInfo
+                                            String(plainEncryptInfo)
                                         )
-                                    }
-                                if (originFile.exists()) {
-                                    MediaScannerConnection.scanFile(
-                                        application.applicationContext,
-                                        arrayOf(originFile.absolutePath),
-                                        null
-                                    ) { path, uri ->
-                                        Log.d("LFViewModel", "Scanned $path $uri")
-                                    }
-                                    Log.d("EncryptedFile path", encryptedFile.absolutePath)
-                                    encryptedFile.delete()
-
-                                    fileRepository.deleteLockedFile(file.id)
-
-                                    val currentList =
-                                        lockedFiles.value?.toMutableList() ?: mutableListOf()
-                                    currentList.remove(file)
-                                    _lockedFiles.postValue(currentList)
-
-                                    var parentId: String? = file.parentID
-                                    while (parentId != null) {
-                                        folderRepository.decreaseQuantity(parentId)
-                                        val folder = folderRepository.getById(parentId)
-                                        if (folder.fileQuantity < 1) {
-                                            folderRepository.delete(folder.id)
+                                    if (originFile.exists()) {
+                                        MediaScannerConnection.scanFile(
+                                            application.applicationContext,
+                                            arrayOf(originFile.absolutePath),
+                                            null
+                                        ) { path, uri ->
+                                            Log.d("LFViewModel", "Scanned $path $uri")
                                         }
-                                        parentId = folder.parentId
-                                    }
-                                    val selectedList = selectedFile.value?.toMutableList()
-                                    selectedList?.remove(file)
-                                    _selectedFile.postValue(selectedList!!)
+                                        Log.d("EncryptedFile path", encryptedFile.absolutePath)
+                                        encryptedFile.delete()
 
-                                } else {
-                                    Toast.makeText(
-                                        application.applicationContext,
-                                        "Fail to unlock file",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                        fileRepository.deleteLockedFile(file.id)
+
+                                        val currentList =
+                                            lockedFiles.value?.toMutableList() ?: mutableListOf()
+                                        currentList.remove(file)
+                                        _lockedFiles.postValue(currentList)
+
+                                        var parentId: String? = file.parentID
+                                        while (parentId != null) {
+                                            folderRepository.decreaseQuantity(parentId)
+                                            val folder = folderRepository.getById(parentId)
+                                            if (folder.fileQuantity < 1) {
+                                                folderRepository.delete(folder.id)
+                                            }
+                                            parentId = folder.parentId
+                                        }
+                                        val selectedList = selectedFile.value?.toMutableList()
+                                        selectedList?.remove(file)
+                                        _selectedFile.postValue(selectedList!!)
+
+                                    } else {
+                                        Toast.makeText(
+                                            application.applicationContext,
+                                            "Fail to unlock file",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                                 }
+
                             }
                         } else {
                             Toast.makeText(
@@ -228,6 +239,10 @@ class LockedFileViewModel(
                                 "File not found to unlock",
                                 Toast.LENGTH_LONG
                             ).show()
+                            keysRepository.deleteKey(file.name)
+                            keysRepository.deleteKey(KEY_ALIAS + file.name)
+                            keysRepository.deleteKey(IV_ALIAS + file.name)
+                            keysRepository.deleteKey(ADD_ALIAS + file.name)
                             _status.value = STATUS.DONE
                         }
                     } catch (e: Exception) {
@@ -252,11 +267,9 @@ class LockedFileViewModel(
                         if (encryptedFile.exists()) {
                             encryptedFile.delete()
                             fileRepository.deleteLockedFile(file.id)
-
                             val currentList = lockedFiles.value?.toMutableList() ?: mutableListOf()
                             currentList.remove(file)
                             _lockedFiles.postValue(currentList)
-
                             var parentId: String? = file.parentID
                             while (parentId != null) {
                                 folderRepository.decreaseQuantity(parentId)
@@ -269,6 +282,11 @@ class LockedFileViewModel(
                             val selectedList = selectedFile.value?.toMutableList()
                             selectedList?.remove(file)
                             _selectedFile.postValue(selectedList!!)
+
+                            keysRepository.deleteKey(file.name)
+                            keysRepository.deleteKey(KEY_ALIAS + file.name)
+                            keysRepository.deleteKey(IV_ALIAS + file.name)
+                            keysRepository.deleteKey(ADD_ALIAS + file.name)
                         }
                     } catch (e: Exception) {
                         _status.value = STATUS.FAIL
@@ -289,35 +307,51 @@ class LockedFileViewModel(
             try {
                 val uris = mutableListOf<Uri>()
                 for (file in files) {
-                    val encryptionInfo = keysRepository.getKey(file.name)
-                    encryptionInfo?.let {
-                        var cacheFile = Crypto(application.applicationContext).decryptFile(
-                            file.currentPath,
-                            file.name,
-                            encryptionInfo
+
+                    if (keysRepository.hasKey(file.name) && keysRepository.hasKey(KEY_ALIAS + file.name) && keysRepository.hasKey(
+                            IV_ALIAS + file.name
+                        ) && keysRepository.hasKey(
+                            ADD_ALIAS + file.name
                         )
-                        if (cacheFile.extension.equals("webp", true)) {
-                            val bitmap = BitmapFactory.decodeFile(cacheFile.absolutePath)
-                            val convertedFile = File(
-                                application.applicationContext.cacheDir,
-                                "${cacheFile.nameWithoutExtension}.jpg"
+                    ) {
+                        val encryptionInfo = keysRepository.getKey(file.name)
+                        val key = keysRepository.getKey(KEY_ALIAS + file.name)
+                        val iv = keysRepository.getKey(IV_ALIAS + file.name)
+                        val addData = keysRepository.getKey(ADD_ALIAS + file.name)
+                        val plainInfo = Crypto(application.applicationContext).decrypt(
+                            decodeString(encryptionInfo),
+                            addData.toByteArray(),
+                            key.toByteArray(),
+                            iv.toByteArray()
+                        )
+                        if (plainInfo != null) {
+                            var cacheFile = Crypto(application.applicationContext).decryptFile(
+                                file.currentPath,
+                                file.name,
+                                String(plainInfo)
                             )
-                            FileOutputStream(convertedFile).use { out ->
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                            if (cacheFile.extension.equals("webp", true)) {
+                                val bitmap = BitmapFactory.decodeFile(cacheFile.absolutePath)
+                                val convertedFile = File(
+                                    application.applicationContext.cacheDir,
+                                    "${cacheFile.nameWithoutExtension}.jpg"
+                                )
+                                FileOutputStream(convertedFile).use { out ->
+                                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                                }
+                                cacheFile = convertedFile
                             }
-                            cacheFile = convertedFile
+                            val uri = FileProvider.getUriForFile(
+                                application.applicationContext,
+                                "${application.applicationContext.packageName}.provider",
+                                cacheFile
+                            )
+                            uris.add(uri)
                         }
-                        Log.d("Adapter123", cacheFile.absolutePath)
-                        val uri = FileProvider.getUriForFile(
-                            application.applicationContext,
-                            "${application.applicationContext.packageName}.provider",
-                            cacheFile
-                        )
-                        uris.add(uri)
+
                     }
                 }
                 if (uris.isNotEmpty()) {
-                    Log.d("Adapter123", uris.size.toString())
                     val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
                         type = "*/*" // Bạn có thể điều chỉnh loại MIME nếu cần
                         putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
@@ -325,7 +359,6 @@ class LockedFileViewModel(
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
 
-                    Log.d("Adapter123", uris.size.toString())
                     _status.value = STATUS.DONE
                     try {
                         val intentChooser = Intent.createChooser(intent, "Share files")
@@ -338,7 +371,6 @@ class LockedFileViewModel(
                             )
                         for (r in resolverInfos) {
                             val packageName = r.activityInfo.packageName
-                            Log.d("Adapter123", packageName)
                             for (uri in uris) {
                                 application.applicationContext.grantUriPermission(
                                     packageName,
@@ -369,7 +401,6 @@ class LockedFileViewModel(
                 // _selectedFile.postValue(emptyList()) // Clear selected files after sharing
             } catch (e: Exception) {
                 _status.value = STATUS.FAIL
-                Log.e("LFViewModel", "Error sharing files", e)
                 Toast.makeText(
                     application.applicationContext,
                     "Failed to share files",

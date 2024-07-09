@@ -97,14 +97,18 @@ class LoginFragment : Fragment() {
         viewModel.isCorrectPassword.observe(viewLifecycleOwner) {
             if (it) {
                 authenticateDialog.dismiss()
-                showSuccessSnackBar(requireView(), requireContext(), "Reset password will be sent to your recovery email")
                 handleForgotPassword()
             } else {
                 authenticateDialog.setError("Incorrect Master Password")
             }
         }
-        binding.appLogo.setOnClickListener {
-            viewModel.test()
+        viewModel.forgotPasswordStatus.observe(viewLifecycleOwner) {
+            if (it == STATUS.DOING) {
+                loadingDialog.show()
+            } else {
+                loadingDialog.close()
+                showSuccessSnackBar(requireView(), requireContext(), "Reset password will be sent to your recovery email")
+            }
         }
     }
 
